@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gubbi Fast — food, fast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --charcoal:#1C1B19;
+    --cream:#FBF7EE;
+    --paper:#F3EEE2;
+    --marigold:#F2A93B;
+    --marigold-dark:#D6900F;
+    --green:#2E6B4F;
+    --green-light:#E6F0EA;
+    --chili:#C1442E;
+    --ink:#2A2622;
+    --line:#E4DBC7;
+    --muted:#8B8375;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overflow-x:hidden;width:100%;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;background:var(--cream);position:relative;overflow:hidden;
+    box-shadow:0 0 60px rgba(0,0,0,0.08);}
+  .stripes{
+    height:8px;width:100%;
+    background:repeating-linear-gradient(-45deg,var(--marigold) 0 18px,var(--charcoal) 18px 36px);
+    flex-shrink:0;
+  }
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;background:var(--charcoal);color:var(--cream);
+  }
+  .brand{display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .brand .mark{
+    width:32px;height:32px;background:var(--marigold);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+    transform:rotate(-6deg);
+  }
+  .brand-name{font-size:19px;font-weight:800;font-family:'Bricolage Grotesque',sans-serif;letter-spacing:-0.02em;}
+  .brand-tag{font-size:10px;color:var(--marigold);font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;}
+  .topbar-tagline{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px;color:var(--cream);
+  }
+  .topbar-tagline .accent{color:var(--marigold);}
+  @media (max-width:420px){ .topbar-tagline{display:none;} }
+  .chip{
+    font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 10px;border-radius:20px;
+    background:rgba(255,255,255,0.1);color:var(--cream);border:1px solid rgba(255,255,255,0.18);
+    cursor:pointer;
+  }
+  .content{padding:20px;padding-bottom:90px;}
+  .role-grid{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
+  .role-card{
+    display:flex;align-items:center;gap:14px;padding:16px;border-radius:14px;
+    border:2px solid var(--line);background:var(--paper);cursor:pointer;transition:transform .15s ease, border-color .15s ease;
+  }
+  .role-card:hover{transform:translateY(-2px);border-color:var(--marigold-dark);}
+  .role-card .icon{
+    width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  }
+  .role-card .txt strong{display:block;font-size:15px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;}
+  .role-card .txt span{font-size:12px;color:var(--muted);}
+  .role-card .arrow{margin-left:auto;color:var(--muted);}
+  /* buttons/inputs */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px 18px;border-radius:10px;border:none;font-weight:700;font-size:14px;
+    cursor:pointer;font-family:'IBM Plex Sans',sans-serif;width:100%;
+  }
+  .btn-primary{background:var(--marigold);color:var(--charcoal);}
+  .btn-primary:active{background:var(--marigold-dark);}
+  .btn-dark{background:var(--charcoal);color:var(--cream);}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn-outline{background:transparent;border:2px solid var(--charcoal);color:var(--charcoal);}
+  .btn-ghost{background:transparent;color:var(--muted);font-weight:600;text-decoration:underline;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:12px 13px;border-radius:9px;border:1.5px solid var(--line);
+    font-size:16px;font-family:'IBM Plex Sans',sans-serif;background:#fff;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--marigold-dark);}
+  .card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .backbar{display:flex;align-items:center;gap:10px;padding:16px 20px 4px;}
+  .back{cursor:pointer;font-size:20px;color:var(--ink);}
+  .backbar h2{font-size:18px;}
+  /* restaurant list */
+  .r-card{display:flex;gap:12px;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;cursor:pointer;}
+  .r-thumb{width:64px;height:64px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;}
+
+  /* marketplace-style search + offers + categories */
+  .search-bar{
+    display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);
+    border-radius:12px;padding:12px 14px;margin-bottom:16px;
+  }
+  .search-bar input{border:none;outline:none;flex:1;font-size:14px;font-family:'IBM Plex Sans',sans-serif;background:transparent;}
+  .offers-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin:0 -20px 4px;padding-left:20px;padding-right:20px;}
+  .offer-card{
+    flex:0 0 auto;width:200px;border-radius:14px;padding:14px;color:#fff;position:relative;overflow:hidden;cursor:pointer;
+    display:flex;align-items:center;gap:10px;
+  }
+  .offer-card-text{flex:1;min-width:0;}
+  .offer-card .oe{font-size:20px;margin-bottom:4px;}
+  .offer-card .ot{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px;line-height:1.15;}
+  .offer-card .os{font-size:10.5px;opacity:0.85;margin-top:3px;line-height:1.25;}
+  .offer-card-img{width:54px;height:54px;border-radius:12px;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,0.35);}
+  .chip-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;margin-top:14px;}
+  .cat-chip{
+    flex:0 0 auto;font-size:12px;font-weight:700;padding:8px 14px;border-radius:20px;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);cursor:pointer;white-space:nowrap;
+  }
+  .cat-chip.active{background:var(--charcoal);color:var(--marigold);border-color:var(--charcoal);}
+
+  /* image-first shop cards (Zomato/Swiggy style) */
+  .shop-card{background:#fff;border:1.5px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:16px;cursor:pointer;}
+  .shop-img-wrap{position:relative;width:100%;height:150px;}
+  .shop-img{width:100%;height:100%;object-fit:cover;display:block;}
+  .disc-tag{
+    position:absolute;left:10px;bottom:10px;background:var(--charcoal);color:var(--marigold);
+    font-size:11px;font-weight:800;padding:5px 10px;border-radius:6px;font-family:'IBM Plex Mono',monospace;
+  }
+  .rating-tag{
+    position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.94);color:var(--green);
+    font-size:11px;font-weight:800;padding:4px 9px;border-radius:20px;font-family:'IBM Plex Mono',monospace;
+  }
+  .shop-card .r-info{padding:12px 14px 14px;}
+  .menu-hero-img{width:100%;height:140px;object-fit:cover;display:block;}
+  .veg-filter-row{display:flex;gap:8px;margin:12px 0 14px;}
+  .veg-chip{
+    flex:1;text-align:center;padding:9px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;
+    background:var(--paper);border:1.5px solid var(--line);color:var(--ink);
+  }
+  .veg-chip.active{background:var(--charcoal);color:var(--marigold);border-color:var(--charcoal);}
+  .veg-chip.veg-opt.active{background:var(--green);color:#fff;border-color:var(--green);}
+  .veg-chip.nonveg-opt.active{background:var(--chili);color:#fff;border-color:var(--chili);}
+  .order-item-thumbs{display:flex;gap:6px;margin:8px 0;}
+  .order-item-thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;border:1.5px solid var(--line);}
+  .order-item-more{
+    width:38px;height:38px;border-radius:8px;background:var(--paper);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+  }
+  .m-emoji{width:44px;height:44px;border-radius:9px;background:var(--paper);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+  .m-img{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .img-upload-row{display:flex;gap:10px;align-items:center;margin-top:6px;}
+  .img-preview{width:56px;height:56px;border-radius:10px;object-fit:cover;border:1.5px solid var(--line);flex-shrink:0;}
+  .upload-btn{
+    font-size:11px;font-weight:700;padding:9px 12px;border-radius:8px;background:var(--paper);
+    border:1.5px solid var(--line);color:var(--ink);cursor:pointer;text-align:center;flex:1;
+  }
+  .upload-btn input[type=file]{display:none;}
+  .r-info{flex:1;}
+  .r-info h3{font-size:15px;}
+  .r-info .meta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .badge{display:inline-block;font-size:10px;font-family:'IBM Plex Mono',monospace;padding:2px 8px;border-radius:20px;background:var(--green-light);color:var(--green);font-weight:600;margin-top:6px;}
+  /* menu item */
+  .m-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .m-emoji{width:44px;height:44px;border-radius:9px;background:var(--paper);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+  .m-info{flex:1;}
+  .m-info h4{font-size:14px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;margin:0;}
+  .m-info .veg{font-size:10px;color:var(--green);}
+  .m-info .nonveg{font-size:10px;color:var(--chili);}
+  .m-price{font-size:13px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--muted);margin-top:2px;}
+  .qty-ctrl{display:flex;align-items:center;gap:10px;background:var(--charcoal);border-radius:8px;padding:6px 10px;}
+  .qty-ctrl button{background:none;border:none;color:var(--cream);font-size:16px;font-weight:700;cursor:pointer;width:16px;}
+  .qty-ctrl span{color:var(--marigold);font-family:'IBM Plex Mono',monospace;font-weight:700;min-width:14px;text-align:center;}
+  .add-btn{background:var(--paper);border:1.5px solid var(--marigold-dark);color:var(--marigold-dark);font-weight:700;font-size:12px;padding:7px 14px;border-radius:8px;cursor:pointer;}
+  /* cart bar */
+  .cart-bar{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+    background:var(--charcoal);color:var(--cream);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer;
+  }
+  /* bottom tab bar (guest/customer browsing shell) */
+  .bottom-nav{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+    background:#fff;border-top:1.5px solid var(--line);display:flex;z-index:40;
+  }
+  .bn-item{flex:1;text-align:center;padding:10px 4px 8px;cursor:pointer;color:var(--muted);}
+  .bn-item.active{color:var(--marigold-dark);}
+  .bn-icon{font-size:19px;position:relative;display:inline-block;}
+  .bn-label{font-size:10px;font-weight:700;margin-top:2px;}
+  /* floating WhatsApp/Instagram contact buttons */
+  .floating-social{
+    position:fixed;bottom:100px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+    display:flex;justify-content:flex-end;gap:10px;padding-right:16px;pointer-events:none;z-index:45;
+  }
+  .fs-btn{
+    pointer-events:auto;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:21px;text-decoration:none;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.28);
+  }
+  .fs-whatsapp{background:#25D366;}
+  .fs-instagram{background:radial-gradient(circle at 30% 110%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);}
+  .cart-bar .l{font-size:13px;color:#C9C2B3;}
+  .cart-bar .r{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--marigold);font-size:14px;}
+  /* route tracker signature element */
+  .route{margin:18px 0 8px;}
+  .route-track{position:relative;height:4px;background:var(--line);border-radius:4px;margin:0 8px 10px;}
+  .route-fill{position:absolute;top:0;left:0;height:4px;background:var(--green);border-radius:4px;transition:width .5s ease;}
+  .route-marker{
+    position:absolute;top:-13px;font-size:20px;transition:left .5s ease;transform:translateX(-50%);
+  }
+  .route-stations{display:flex;justify-content:space-between;padding:0 2px;}
+  .route-stations .st{font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center;width:25%;font-weight:600;}
+  .route-stations .st.done{color:var(--green);}
+  .route-stations .st.active{color:var(--marigold-dark);}
+  /* order card */
+  .order-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+  .order-top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .order-id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .status-pill{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;font-family:'IBM Plex Mono',monospace;}
+  .status-Placed{background:#FDF1DC;color:var(--marigold-dark);}
+  .status-Accepted{background:#E6EEFB;color:#2453A8;}
+  .status-PickedUp{background:#FCE9E3;color:var(--chili);}
+  .status-Delivered{background:var(--green-light);color:var(--green);}
+  .status-AwaitingPayment{background:#FDF1DC;color:var(--marigold-dark);}
+  .status-PaymentClaimed{background:#E6EEFB;color:#2453A8;}
+  .status-PaymentRejected{background:#FCE9E3;color:var(--chili);}
+  .empty{text-align:center;padding:50px 20px;color:var(--muted);}
+  .empty .big{font-size:40px;margin-bottom:10px;}
+  .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin:22px 0 10px;}
+  .tab-row{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;}
+  .tab{flex:1 0 auto;text-align:center;padding:10px 14px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:var(--paper);color:var(--muted);border:1.5px solid var(--line);white-space:nowrap;}
+  .tab.active{background:var(--charcoal);color:var(--marigold);border-color:var(--charcoal);}
+  .stat-grid{display:flex;gap:10px;margin-bottom:8px;}
+  .stat{flex:1;background:var(--paper);border-radius:12px;padding:14px;text-align:center;}
+  .stat-clickable{cursor:pointer;transition:transform .12s ease, background .12s ease;}
+  .stat-clickable:hover{background:#EAE1CC;}
+  .stat-clickable:active{transform:scale(0.97);}
+  .stat .n{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px;}
+  .stat .l{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+  .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .list-row .li{flex:1;}
+  .list-row .li strong{display:block;font-size:13px;}
+  .list-row .li span{font-size:11px;color:var(--muted);}
+  .toast{
+    position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--charcoal);color:var(--cream);
+    padding:11px 18px;border-radius:30px;font-size:13px;font-weight:600;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,0.25);
+    max-width:80%;text-align:center;
+  }
+  .footer-note{font-size:10px;color:var(--muted);text-align:center;margin-top:24px;font-family:'IBM Plex Mono',monospace;}
+  .notif-dot{
+    position:absolute;top:-6px;right:-6px;background:var(--chili);color:#fff;font-size:9px;font-weight:700;
+    min-width:15px;height:15px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 3px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .notif-panel{
+    position:absolute;top:52px;right:14px;width:280px;max-height:340px;overflow-y:auto;background:#fff;color:var(--ink);
+    border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);border:1px solid var(--line);z-index:50;
+  }
+  .notif-panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);padding:12px 14px 6px;}
+  .notif-empty{padding:16px 14px 20px;font-size:13px;color:var(--muted);}
+  .notif-item{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--line);}
+  .notif-icon{font-size:16px;flex-shrink:0;}
+  .notif-body{font-size:12.5px;line-height:1.35;}
+  .notif-time{font-size:10px;color:var(--muted);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  a.linklike{color:var(--marigold-dark);cursor:pointer;font-weight:700;}
+  .earnings-total{
+    background:var(--charcoal);border-radius:14px;padding:16px 18px;margin-bottom:14px;text-align:center;
+  }
+  .earnings-total .et-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#C9C2B3;}
+  .earnings-total .et-amount{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;color:var(--marigold);margin-top:4px;}
+  .earnings-total .et-sub{font-size:11px;color:#8B8375;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+  .order-money-row{display:flex;gap:10px;margin-bottom:10px;}
+  .money-box{flex:1;border-radius:10px;padding:10px 12px;text-align:center;}
+  .money-box .mb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .money-box .mb-amount{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-top:3px;}
+  .cod-box{background:var(--green-light);}
+  .cod-box .mb-label{color:var(--green);}
+  .cod-box .mb-amount{color:var(--green);}
+  .earn-box{background:#FDF1DC;}
+  .earn-box .mb-label{color:var(--marigold-dark);}
+  .earn-box .mb-amount{color:var(--marigold-dark);}
+  .earn-table{background:#fff;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .earn-table-head{display:grid;grid-template-columns:1.2fr 1fr 1fr;background:var(--paper);padding:9px 12px;
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);}
+  .earn-table-row{display:grid;grid-template-columns:1.2fr 1fr 1fr;padding:10px 12px;border-top:1px solid var(--line);
+    align-items:center;font-size:12.5px;}
+  .earn-table-row .et-name{font-weight:600;}
+  .earn-table-row .et-val{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);}
+  .earn-table-row .et-val.earn{color:var(--marigold-dark);}
+  .earn-table-row.total-row{background:var(--charcoal);color:#fff;font-weight:700;}
+  .earn-table-row.total-row .et-val{color:var(--marigold);}
+  .earn-table-row.total-row .et-val.earn{color:var(--marigold);}
+
+  /* ============ RESPONSIVE ============
+     Mobile-first by default (#app behaves like a phone screen, full width, no side gutters).
+     From ~700px up (tablet/desktop) the app widens and switches lists to a multi-column grid
+     instead of just stretching a narrow phone-shaped column in the middle of the page. */
+  .restaurant-grid{display:block;}
+  @media (max-width:380px){
+    .content{padding:14px;}
+  }
+  @media (min-width:700px){
+    body{padding:24px 0;}
+    #app{max-width:1100px;border-radius:20px;min-height:calc(100vh - 48px);}
+    .content{padding:28px 32px;}
+    .role-grid{flex-direction:row;flex-wrap:wrap;}
+    .role-card{flex:1 1 260px;}
+    .restaurant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+    .restaurant-grid .shop-card{margin-bottom:0;}
+    .offers-row{margin:0 0 4px;padding-left:0;padding-right:0;}
+    .m-item{padding:14px 0;}
+    .backbar{padding:20px 32px 4px;}
+    .cart-bar, .bottom-nav, .floating-social{max-width:1100px;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============ CONFIGURATION — edit these two blocks for your own deployment ============
+   1) firebase: OPTIONAL. Fill this in with a free Firebase project's web config to sync orders
+      and menu data across every customer/rider/admin device in real time (see README.md next to
+      this file for the 2-minute setup). Leave apiKey empty to run in single-device demo mode,
+      which uses the browser's own localStorage instead and only syncs between tabs on one device.
+   2) upi: the UPI ID customers pay into at checkout. Admins can also change this later from the
+      Admin > Settings tab without touching code — whatever they set there takes priority. */
+const CONFIG = {
+  firebase: {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  },
+  upi: {
+    payeeVpa: "yourname@upi",
+    payeeName: "Gubbi Fast",
+    adminPhone: "9123242102"
+  },
+  social: {
+    instagramUrl: "https://www.instagram.com/gubbi_fast/",
+    whatsappUrl: "https://api.whatsapp.com/message/X5VYGUB7I3I4P1?autoload=1&app_absent=0"
+  }
+};
+
+/* ============ IN-MEMORY DATABASE (simulates the backend for this demo) ============ */
+const DB = {
+  restaurants: [
+    {id:'r1', name:'Gubbi Tiffin House', cuisine:'South Indian · Tiffins', area:'B.H. Road, Gubbi', eta:'25-30 min', rating:4.3, color:'#F2A93B', emoji:'🍛', lat:13.3096, lng:76.9376, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg'},
+    {id:'r2', name:'Namma Biryani Corner', cuisine:'Biryani · Kebabs', area:'Bus Stand Road, Gubbi', eta:'30-35 min', rating:4.1, color:'#C1442E', emoji:'🍚', lat:13.3070, lng:76.9350, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
+    {id:'r3', name:'Malnad Meals', cuisine:'Karnataka Thali', area:'Tumkur Road, Gubbi', eta:'20-25 min', rating:4.5, color:'#2E6B4F', emoji:'🍲', lat:13.3110, lng:76.9390, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg'},
+    {id:'r4', name:'Silk City Sweets & Snacks', cuisine:'Sweets · Chaat', area:'APMC Yard, Gubbi', eta:'15-20 min', rating:4.0, color:'#8E5FA3', emoji:'🍬', lat:13.3060, lng:76.9410, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg'},
+  ],
+  // Real photos below are sourced from Wikimedia Commons/Wikipedia (freely licensed). Items
+  // without a verified real photo fall back to an auto-generated illustration — see itemImage().
+  menu: {
+    r1:[
+      {id:'m1',name:'Masala Dosa',price:80,veg:true,emoji:'🥞',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg'},
+      {id:'m2',name:'Idli Vada Combo',price:70,veg:true,emoji:'🍥',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Idli_Sambar.JPG/640px-Idli_Sambar.JPG'},
+      {id:'m3',name:'Filter Coffee',price:30,veg:true,emoji:'☕',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Filter_kaapi.JPG/640px-Filter_kaapi.JPG'},
+      {id:'m4',name:'Rava Kesari Bath',price:60,veg:true,emoji:'🍮',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg'},
+    ],
+    r2:[
+      {id:'m5',name:'Chicken Dum Biryani',price:220,veg:false,emoji:'🍗',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
+      {id:'m6',name:'Mutton Biryani',price:280,veg:false,emoji:'🍖',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
+      {id:'m7',name:'Veg Biryani',price:170,veg:true,emoji:'🍛',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Afghan_Palo.jpg/640px-Afghan_Palo.jpg'},
+      {id:'m8',name:'Chicken Seekh Kebab',price:190,veg:false,emoji:'🍢',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Pakistani_Food_Beef_Kabobs.jpg/640px-Pakistani_Food_Beef_Kabobs.jpg'},
+    ],
+    r3:[
+      {id:'m9',name:'Karnataka Thali',price:150,veg:true,emoji:'🍽️',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg'},
+      {id:'m10',name:'Bisi Bele Bath',price:110,veg:true,emoji:'🍚',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Bisi_Bele_Bath_%28Bisibelebath%29.JPG/640px-Bisi_Bele_Bath_%28Bisibelebath%29.JPG'},
+      {id:'m11',name:'Ragi Mudde + Saaru',price:90,veg:true,emoji:'🍚',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/RAGI_MUDDE.JPG/640px-RAGI_MUDDE.JPG'},
+    ],
+    r4:[
+      {id:'m12',name:'Mysore Pak',price:120,veg:true,emoji:'🍬',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Mysore_pak.jpg/640px-Mysore_pak.jpg'},
+      {id:'m13',name:'Pani Puri Plate',price:50,veg:true,emoji:'🥟',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Pani_Puri1.JPG/640px-Pani_Puri1.JPG'},
+      {id:'m14',name:'Dharwad Peda (250g)',price:140,veg:true,emoji:'🍡',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg/640px-Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg'},
+    ],
+  },
+  riders: [
+    {id:'rd1', name:'Ravi Kumar', phone:'98450 11122', commissionPercent:10, password:'rider123'},
+    {id:'rd2', name:'Suresh Gowda', phone:'99001 33445', commissionPercent:8, password:'rider123'},
+    {id:'rd3', name:'Manjunath B.', phone:'97400 55667', commissionPercent:10, password:'rider123'},
+  ],
+  offers: [
+    {id:'o1', emoji:'🔥', title:'FLAT 50% OFF', sub:'Up to ₹100 at Gubbi Tiffin House', bg:'#C1442E', restaurantId:'r1'},
+    {id:'o2', emoji:'🍗', title:'Biryani Bonanza', sub:'Flat ₹75 off at Namma Biryani Corner', bg:'#2453A8', restaurantId:'r2'},
+    {id:'o3', emoji:'🍬', title:'Sweet Treat Deal', sub:'Buy 1 Get 1 at Silk City Sweets', bg:'#8E5FA3', restaurantId:'r4'},
+  ], // {id, emoji, title, sub, bg, restaurantId}
+  orders: [], // {id, restaurantId, items, total, customerName, customerPhone, address, status, riderId, createdAt, paymentMethod, custLat, custLng, riderLat, riderLng}
+  orderSeq: 1001,
+  notifications: [], // {id, audience:'customer'|'rider'|'admin'|'all-riders', targetId, icon, message, time, read, _surfaced}
+  settings: { upiId: CONFIG.upi.payeeVpa, upiName: CONFIG.upi.payeeName, adminPhone: CONFIG.upi.adminPhone, instagramUrl: CONFIG.social.instagramUrl, whatsappUrl: CONFIG.social.whatsappUrl },
+};
+
+/* ---- dummy image generator (used whenever admin/customer hasn't supplied a real photo) ---- */
+function shade(hex, percent){
+  const n = parseInt(hex.replace('#',''),16);
+  let r=(n>>16)+percent, g=((n>>8)&0xff)+percent, b=(n&0xff)+percent;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return '#'+(1<<24 | r<<16 | g<<8 | b).toString(16).slice(1);
+}
+function dummyImage(emoji, color, w, h){
+  const light = shade(color, 25);
+  const dark = shade(color, -40);
+  const cx = w/2, cy = h*0.54;
+  const plateW = w*0.66, plateH = h*0.5;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>
+    <defs>
+      <radialGradient id='bg' cx='50%' cy='30%' r='80%'>
+        <stop offset='0' stop-color='${light}'/>
+        <stop offset='55%' stop-color='${color}'/>
+        <stop offset='100%' stop-color='${dark}'/>
+      </radialGradient>
+      <radialGradient id='plate' cx='45%' cy='35%' r='70%'>
+        <stop offset='0' stop-color='#FFFDF8'/>
+        <stop offset='100%' stop-color='#F1E8D6'/>
+      </radialGradient>
+    </defs>
+    <rect width='100%' height='100%' fill='url(#bg)'/>
+    <ellipse cx='${cx}' cy='${cy+plateH*0.42}' rx='${plateW*0.5}' ry='${plateH*0.16}' fill='#000' opacity='0.16'/>
+    <ellipse cx='${cx}' cy='${cy}' rx='${plateW/2}' ry='${plateH/2}' fill='url(#plate)'/>
+    <ellipse cx='${cx}' cy='${cy}' rx='${plateW/2}' ry='${plateH/2}' fill='none' stroke='${dark}' stroke-opacity='0.15' stroke-width='2'/>
+    <ellipse cx='${cx-plateW*0.12}' cy='${cy-plateH*0.22}' rx='${plateW*0.22}' ry='${plateH*0.12}' fill='#fff' opacity='0.55'/>
+    <text x='${cx}' y='${cy+h*0.015}' font-size='${Math.round(Math.min(w,h)*0.34)}' text-anchor='middle' dominant-baseline='middle'>${emoji}</text>
+  </svg>`;
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+}
+function restaurantImage(r){ return r.image || dummyImage(r.emoji, r.color, 400, 220); }
+function itemImage(it){ return it.image || dummyImage(it.emoji, it.veg?'#2E6B4F':'#C1442E', 300, 300); }
+function restaurantImgTag(r, cls){
+  const fallback = dummyImage(r.emoji, r.color, 400, 220);
+  return `<img class="${cls}" src="${restaurantImage(r)}" alt="${r.name}" loading="lazy" data-fallback="${fallback}" onerror="this.onerror=null;this.src=this.dataset.fallback;">`;
+}
+function itemImgTag(it, cls){
+  const fallback = dummyImage(it.emoji, it.veg?'#2E6B4F':'#C1442E', 300, 300);
+  return `<img class="${cls}" src="${itemImage(it)}" alt="${it.name}" loading="lazy" data-fallback="${fallback}" onerror="this.onerror=null;this.src=this.dataset.fallback;">`;
+}
+function orderItemThumbs(order){
+  const menuItems = DB.menu[order.restaurantId] || [];
+  const shown = order.items.slice(0,4).map(oi=>{
+    const it = menuItems.find(m=>m.id===oi.itemId);
+    return it ? itemImgTag(it, 'order-item-thumb') : '';
+  }).join('');
+  if(!shown) return '';
+  const more = order.items.length>4 ? `<span class="order-item-more">+${order.items.length-4}</span>` : '';
+  return `<div class="order-item-thumbs">${shown}${more}</div>`;
+}
+function hashStr(s){ let h=0; for(const c of String(s)) h=(h*31+c.charCodeAt(0))>>>0; return h; }
+function ratingFor(r){ return (r.rating!=null ? Number(r.rating) : (3.6 + (hashStr(r.id)%14)/10)).toFixed(1); }
+function offerTagFor(restaurantId){
+  const offer = DB.offers.find(o=>o.restaurantId===restaurantId);
+  return offer ? offer.title : null;
+}
+
+const PAYMENT_METHOD = 'UPI (PhonePe / Paytm / GPay)';
+// Fallback delivery point (central Gubbi) used when the browser denies/lacks geolocation
+const FALLBACK_LOC = {lat:13.3086, lng:76.9366};
+function mapsLink(lat,lng){ return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
+/* Standard UPI deep link — opens whichever UPI app is installed (PhonePe, Paytm, GPay, etc.) with
+   the payee, amount and note pre-filled. This is a ONE-WAY deep link only: there is no callback
+   telling this website whether the payment actually succeeded — see README.md for why, and how
+   the app compensates with a manual admin-verification step instead of trusting it blindly. */
+function upiLink(amount, orderId){
+  const params = new URLSearchParams({
+    pa: DB.settings.upiId,
+    pn: DB.settings.upiName,
+    am: String(amount),
+    cu: 'INR',
+    tn: `Gubbi Fast order ${orderId}`
+  });
+  return `upi://pay?${params.toString()}`;
+}
+
+const STATIONS = ['Placed','Accepted','PickedUp','Delivered'];
+const STATION_LABEL = {Placed:'Placed', Accepted:'Rider Accepted', PickedUp:'Picked Up', Delivered:'Delivered',
+  AwaitingPayment:'Awaiting Payment', PaymentClaimed:'Payment Claimed', PaymentRejected:'Payment Not Received'};
+
+function formFieldFocused(){
+  const a = document.activeElement;
+  return a && (a.tagName==='INPUT' || a.tagName==='TEXTAREA' || a.tagName==='SELECT');
+}
+
+/* ============ LIVE MAP (Leaflet + OpenStreetMap — free, no API key needed) ============ */
+function loadScriptOnce(src){
+  return new Promise((resolve,reject)=>{
+    if(document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.onload = ()=>resolve(); s.onerror = ()=>reject(new Error('failed to load '+src));
+    document.head.appendChild(s);
+  });
+}
+let _leafletReady = null;
+function ensureLeaflet(){
+  if(_leafletReady) return _leafletReady;
+  _leafletReady = (async()=>{
+    if(!document.querySelector('link[data-leaflet]')){
+      const link = document.createElement('link');
+      link.rel='stylesheet'; link.dataset.leaflet='1';
+      link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    await loadScriptOnce('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+  })();
+  return _leafletReady;
+}
+const _maps = {}; // orderId -> Leaflet map instance, re-mounted on every render()
+async function mountMaps(){
+  const containers = document.querySelectorAll('[data-map-order]');
+  if(containers.length===0) return;
+  try{ await ensureLeaflet(); }catch(e){ return; }
+  if(!window.L) return;
+  containers.forEach(el=>{
+    const orderId = el.dataset.mapOrder;
+    const o = DB.orders.find(x=>x.id===orderId);
+    if(!o) return;
+    if(_maps[orderId]){ _maps[orderId].remove(); delete _maps[orderId]; }
+    const map = L.map(el, {zoomControl:false, attributionControl:false});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+    const pts = [[o.custLat,o.custLng]];
+    L.marker([o.custLat,o.custLng]).addTo(map).bindPopup('📍 Delivery address');
+    if(o.riderLat && o.riderLng){
+      pts.push([o.riderLat,o.riderLng]);
+      L.marker([o.riderLat,o.riderLng]).addTo(map).bindPopup('🛵 Rider — live location');
+    }
+    if(pts.length>1) map.fitBounds(pts, {padding:[24,24]}); else map.setView(pts[0], 14);
+    _maps[orderId] = map;
+  });
+}
+
+/* ============ RIDER LIVE LOCATION SHARING ============
+   While a rider has an order Accepted/PickedUp, we watch their GPS position and write it to the
+   order so the customer's live map above can show the rider moving in real time. */
+let _riderWatchId = null;
+function startRiderLocationSharing(orderId){
+  if(!navigator.geolocation) return;
+  stopRiderLocationSharing();
+  _riderWatchId = navigator.geolocation.watchPosition(
+    async pos=>{
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      try{
+        const {ok} = await apiCall(`/api/orders/${orderId}/rider-location`, jsonPost({riderId:S.riderId, lat, lng}));
+        if(ok) return;
+      }catch(e){ /* no backend reachable — fall back below */ }
+      const o = DB.orders.find(x=>x.id===orderId);
+      if(!o || o.status==='Delivered') return;
+      o.riderLat = lat; o.riderLng = lng;
+      saveLive();
+    },
+    ()=>{ /* rider denied location — deliveries still work, just no live pin */ },
+    {enableHighAccuracy:true, maximumAge:10000}
+  );
+}
+function stopRiderLocationSharing(){
+  if(_riderWatchId!=null && navigator.geolocation){ navigator.geolocation.clearWatch(_riderWatchId); _riderWatchId=null; }
+}
+
+/* ============ BACKEND (works with zero setup, upgrades automatically if you add Firebase) ============
+   Orders/notifications/catalog need to be shared across every tab, device, and role — e.g. an
+   order placed by a customer must show up instantly for admin and every rider on their own
+   devices. A static site like this has no server of its own, so:
+     - If CONFIG.firebase has real values, this syncs through Firestore in real time across ANY
+       device, anywhere. See README.md for the free 2-minute setup.
+     - If CONFIG.firebase.apiKey is empty (the default), this falls back to the browser's own
+       localStorage, which only syncs between tabs on the SAME browser/device — the site still
+       works and is fully deployable as-is, just without cross-device sync.
+   Adoption of incoming data is gated on a monotonically increasing revision number, never on a
+   raw string diff — a poll that lands mid-write and reads a stale copy would otherwise revert
+   fresher local state (e.g. an order just marked Delivered flipping back). */
+const USE_FIREBASE = !!(CONFIG.firebase && CONFIG.firebase.apiKey);
+let _fsDb = null;
+const _bc = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('gubbi-fast-sync') : null;
+async function initBackend(){
+  if(!USE_FIREBASE) return;
+  try{
+    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js');
+    firebase.initializeApp(CONFIG.firebase);
+    _fsDb = firebase.firestore();
+  }catch(e){ console.error('Firebase init failed — falling back to single-device local storage.', e); }
+}
+async function backendGet(key){
+  if(USE_FIREBASE && _fsDb){
+    const doc = await _fsDb.collection('gubbiFast').doc(key).get();
+    return doc.exists ? doc.data() : null;
+  }
+  const raw = localStorage.getItem('gubbi_'+key);
+  return raw ? JSON.parse(raw) : null;
+}
+async function backendSet(key, value){
+  if(USE_FIREBASE && _fsDb){
+    await _fsDb.collection('gubbiFast').doc(key).set(value);
+    return;
+  }
+  localStorage.setItem('gubbi_'+key, JSON.stringify(value));
+  if(_bc) _bc.postMessage({key}); // wake up other tabs on this device immediately
+}
+if(_bc) _bc.onmessage = ()=>{ if(!formFieldFocused()) pollShared(); };
+
+/* ============ SECURE BACKEND CALLS ============
+   Order creation, order status changes and catalog edits are validated server-side (see
+   api/index.py) instead of trusting whatever the browser sends. apiCall() only throws on a
+   genuine network failure (no backend reachable at all, e.g. this file opened locally without
+   deploying api/) — callers catch that to fall back to a client-only demo mode. A reachable
+   backend that rejects a request (bad state, wrong rider, expired admin session, etc.) returns
+   normally with ok:false so the real error is shown instead of silently pretending it worked. */
+async function apiCall(path, options){
+  const res = await fetch(path, options||{});
+  let data = null;
+  try{ data = await res.json(); }catch(e){}
+  return {ok: res.ok, status: res.status, data};
+}
+function jsonPost(body, extraHeaders){
+  return jsonReq('POST', body, extraHeaders);
+}
+function jsonReq(method, body, extraHeaders){
+  return {method, headers:Object.assign({'Content-Type':'application/json'}, extraHeaders||{}), body: JSON.stringify(body||{})};
+}
+function authHeaders(){ return S.adminToken ? {'Authorization':'Bearer '+S.adminToken} : {}; }
+
+async function saveCatalog(){
+  try{
+    DB.catalogRev = (DB.catalogRev||0) + 1;
+    await backendSet('catalog', {restaurants:DB.restaurants, menu:DB.menu, riders:DB.riders, offers:DB.offers, settings:DB.settings, catalogRev:DB.catalogRev});
+  }catch(e){ /* best-effort; keep working in-memory if this fails */ }
+}
+async function saveLive(){
+  try{
+    DB.liveRev = (DB.liveRev||0) + 1;
+    await backendSet('live', {orders:DB.orders, notifications:DB.notifications, orderSeq:DB.orderSeq, liveRev:DB.liveRev});
+  }catch(e){ /* best-effort */ }
+}
+async function loadAll(){
+  await initBackend();
+  try{
+    const cat = await backendGet('catalog');
+    if(cat){
+      DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
+      DB.offers = cat.offers || DB.offers;
+      DB.settings = cat.settings || DB.settings;
+      DB.catalogRev = cat.catalogRev || 0;
+    } else { await saveCatalog(); } // first run on this app: seed shared storage
+  }catch(e){ await saveCatalog(); }
+  try{
+    const live = await backendGet('live');
+    if(live){
+      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+      DB.liveRev = live.liveRev || 0;
+    } else { await saveLive(); }
+  }catch(e){ await saveLive(); }
+}
+/* Poll for changes made in OTHER tabs/devices — skipped while a form field is actively focused
+   so an admin mid-typing never gets their in-progress text wiped out from under them. */
+async function pollShared(){
+  if(formFieldFocused()) return;
+  try{
+    const live = await backendGet('live');
+    if(live && (live.liveRev||0) > (DB.liveRev||0)){
+      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+      DB.liveRev = live.liveRev || 0;
+      render();
+    }
+  }catch(e){}
+  try{
+    const cat = await backendGet('catalog');
+    if(cat && (cat.catalogRev||0) > (DB.catalogRev||0)){
+      DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
+      DB.offers = cat.offers || DB.offers;
+      DB.settings = cat.settings || DB.settings;
+      DB.catalogRev = cat.catalogRev || 0;
+      render();
+    }
+  }catch(e){}
+}
+
+/* ============ SESSION / APP STATE ============ */
+let S = {
+  screen: 'customer-restaurants',
+  role: null,           // null (guest) | 'customer' | 'rider' | 'admin'
+  customerName: null,
+  customerPhone: null,
+  riderId: null,
+  currentRestaurantId: null,
+  cart: {},             // itemId -> qty  (cart is per current restaurant)
+  adminTab: 'restaurants',
+  toast: null,
+};
+
+function showToast(msg){
+  S.toast = msg;
+  // Avoid a full re-render (which would blank out an in-progress form) while typing —
+  // just show the toast on top instead, and let the next natural render pick up state.
+  if(formFieldFocused()){
+    let el = document.getElementById('toast-el');
+    if(!el){
+      el = document.createElement('div'); el.id='toast-el'; el.className='toast';
+      document.getElementById('app').appendChild(el);
+    }
+    el.textContent = msg;
+  } else {
+    render();
+  }
+  setTimeout(()=>{ S.toast=null; renderToastOnly(); }, 2200);
+}
+function renderToastOnly(){
+  const el = document.getElementById('toast-el');
+  if(el) el.remove();
+}
+
+function go(screen){ S.screen = screen; S.notifOpen = false; render(); window.scrollTo(0,0); }
+
+/* ---- notifications ---- */
+function pushNotification(audience, targetId, message, icon){
+  DB.notifications.unshift({
+    id: 'n'+Date.now()+Math.random().toString(16).slice(2),
+    audience, targetId, message, icon: icon||'🔔', time: timeNow(), read:false
+  });
+  saveLive();
+}
+function mySessionNotifications(){
+  if(S.role==='customer') return DB.notifications.filter(n=> n.audience==='customer' && n.targetId===S.customerPhone);
+  if(S.role==='rider') return DB.notifications.filter(n=> (n.audience==='rider' && n.targetId===S.riderId) || n.audience==='all-riders');
+  if(S.role==='admin') return DB.notifications.filter(n=> n.audience==='admin');
+  return [];
+}
+function unreadNotifCount(){ return mySessionNotifications().filter(n=>!n.read).length; }
+function toggleNotifPanel(){
+  S.notifOpen = !S.notifOpen;
+  if(S.notifOpen) mySessionNotifications().forEach(n=>{ n.read=true; n._surfaced=true; });
+  render();
+}
+/* Simulates real-time push: auto-toasts (+ plays a sound for) any new notification for
+   whichever role is currently active in this tab (e.g. the moment a rider accepts, the
+   customer hears/sees it). */
+setInterval(()=>{
+  if(!S.role) return;
+  const unseen = mySessionNotifications().filter(n=>!n._surfaced);
+  if(unseen.length){
+    unseen.forEach(n=> n._surfaced = true);
+    playNotifSound();
+    showToast(unseen[0].icon+' '+unseen[0].message);
+  }
+}, 1600);
+/* Two-tone "ding-dong" chime generated with the Web Audio API — no external sound file needed.
+   Browsers suspend audio until a user gesture happens on the page; by the time a real
+   notification fires the user has almost always already tapped something, so this just
+   resumes quietly. */
+let _audioCtx = null;
+function playNotifSound(){
+  try{
+    _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if(_audioCtx.state==='suspended') _audioCtx.resume();
+    const now = _audioCtx.currentTime;
+    const notes = [{freq:1046.5, start:0, dur:0.22}, {freq:784.0, start:0.16, dur:0.4}]; // C6 then G5
+    notes.forEach(({freq, start, dur})=>{
+      const osc = _audioCtx.createOscillator();
+      const gain = _audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now+start);
+      gain.gain.setValueAtTime(0.001, now+start);
+      gain.gain.exponentialRampToValueAtTime(0.2, now+start+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now+start+dur);
+      osc.connect(gain); gain.connect(_audioCtx.destination);
+      osc.start(now+start); osc.stop(now+start+dur+0.05);
+    });
+  }catch(e){ /* audio blocked/unavailable — notification still shows visually */ }
+}
+
+/* ---- image upload helper (admin: pick a real photo from device, stored as a data URL) ---- */
+function handleImageUpload(inputEl, previewImgId){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    inputEl.dataset.uploaded = e.target.result;
+    const img = document.getElementById(previewImgId);
+    if(img) img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ---- live location capture, triggered at "Place order" ---- */
+function captureLocationThenPlaceOrder(){
+  if(S._locCaptured && S._pendingLat!=null){ placeOrder(); return; } // already captured on the cart screen
+  if(!navigator.geolocation){
+    S._locCaptured = false;
+    showToast("Location isn't supported here — using your typed address instead.");
+    placeOrder();
+    return;
+  }
+  showToast('📍 Requesting your location for the rider…');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      S._pendingLat = pos.coords.latitude;
+      S._pendingLng = pos.coords.longitude;
+      S._locCaptured = true;
+      placeOrder();
+    },
+    err=>{
+      S._locCaptured = false;
+      showToast("Couldn't access your location — using your typed address instead.");
+      placeOrder();
+    },
+    {timeout:8000}
+  );
+}
+
+function logout(){
+  S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null,
+       currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
+  render();
+}
+
+/* ============ HELPERS ============ */
+function cartCount(){ return Object.values(S.cart).reduce((a,b)=>a+b,0); }
+function cartTotal(){
+  if(!S.currentRestaurantId) return 0;
+  const items = DB.menu[S.currentRestaurantId];
+  return Object.entries(S.cart).reduce((sum,[id,qty])=>{
+    const item = items.find(i=>i.id===id);
+    return sum + (item ? item.price*qty : 0);
+  },0);
+}
+function fmt(n){ return '₹'+n; }
+function timeNow(){
+  const d = new Date();
+  return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+function restaurantById(id){ return DB.restaurants.find(r=>r.id===id); }
+function riderById(id){ return DB.riders.find(r=>r.id===id); }
+
+/* Order lifecycle for UPI: AwaitingPayment -> (PaymentClaimed) -> Placed -> Accepted -> PickedUp -> Delivered
+   (or PaymentRejected, a dead end). Cash on Delivery skips straight to Placed since no upfront
+   payment needs verifying — the rider collects cash at the door instead. */
+async function placeOrder(){
+  const isCod = S.paymentChoice === 'cod';
+  const body = {
+    restaurantId: S.currentRestaurantId,
+    cart: S.cart,
+    customerName: S.customerName,
+    customerPhone: S.customerPhone,
+    address: S._pendingAddress || 'Home',
+    paymentChoice: S.paymentChoice,
+    custLat: S._locCaptured ? S._pendingLat : null,
+    custLng: S._locCaptured ? S._pendingLng : null,
+    locShared: !!S._locCaptured,
+  };
+  try{
+    const {ok, data} = await apiCall('/api/orders', jsonPost(body));
+    if(!ok){ showToast((data&&data.error)||'Could not place the order.'); return; }
+    S.cart = {};
+    S.pendingOrderId = data.order.id;
+    await pollShared();
+    showToast(isCod?'Order placed! Restaurant is preparing it.':'Order created — complete payment to confirm.');
+    go(isCod?'customer-orders':'customer-payment');
+    return;
+  }catch(e){ /* no backend reachable — fall back to client-only demo mode below */ }
+  placeOrderLocal(isCod);
+}
+function placeOrderLocal(isCod){
+  const items = DB.menu[S.currentRestaurantId];
+  const orderItems = Object.entries(S.cart).map(([id,qty])=>{
+    const it = items.find(i=>i.id===id);
+    return {itemId:id, name:it.name, qty, price:it.price};
+  });
+  const order = {
+    id: 'GF' + (DB.orderSeq++),
+    restaurantId: S.currentRestaurantId,
+    items: orderItems,
+    total: cartTotal(),
+    customerName: S.customerName,
+    customerPhone: S.customerPhone,
+    address: S._pendingAddress || 'Home',
+    status: isCod ? 'Placed' : 'AwaitingPayment',
+    riderId: null,
+    createdAt: timeNow(),
+    paymentMethod: isCod ? 'Cash on Delivery' : PAYMENT_METHOD,
+    custLat: S._locCaptured ? S._pendingLat : FALLBACK_LOC.lat,
+    custLng: S._locCaptured ? S._pendingLng : FALLBACK_LOC.lng,
+    locShared: !!S._locCaptured,
+  };
+  DB.orders.unshift(order);
+  S.cart = {};
+  S.pendingOrderId = order.id;
+  const rest = restaurantById(order.restaurantId);
+  if(isCod){
+    pushNotification('customer', S.customerPhone, `Order #${order.id} placed at ${rest.name} — pay ${fmt(order.total)} cash on delivery.`, '🧾');
+    pushNotification('admin', null, `New order #${order.id} from ${S.customerName} at ${rest.name} — ${fmt(order.total)} (COD).`, '🆕');
+    pushNotification('all-riders', null, `New order #${order.id} available for pickup near ${rest.area}.`, '📦');
+    showToast('Order placed! Restaurant is preparing it.');
+    saveLive();
+    go('customer-orders');
+  } else {
+    pushNotification('customer', S.customerPhone, `Order #${order.id} created at ${rest.name} — complete UPI payment to confirm it.`, '🧾');
+    pushNotification('admin', null, `Order #${order.id} from ${S.customerName} at ${rest.name} — ${fmt(order.total)} — awaiting payment.`, '⏳');
+    showToast('Order created — complete payment to confirm.');
+    go('customer-payment');
+  }
+}
+
+/* Customer self-reports "I paid" — this does NOT confirm money actually arrived, it just tells
+   the admin to go check their UPI/bank app and confirm manually. See README.md for why. */
+async function markPaymentClaimed(orderId){
+  try{
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/claim-payment`, jsonPost({customerPhone:S.customerPhone}));
+    if(!ok){ showToast((data&&data.error)||'Could not update the order.'); return; }
+    await pollShared();
+    showToast("Thanks — we'll confirm once your payment is verified.");
+    go('customer-orders');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const o = DB.orders.find(x=>x.id===orderId);
+  if(!o) return;
+  o.status = 'PaymentClaimed';
+  pushNotification('admin', null, `Customer claims payment for order #${o.id} (${fmt(o.total)}) — please verify in your UPI/bank app before confirming.`, '💳');
+  saveLive();
+  showToast("Thanks — we'll confirm once your payment is verified.");
+  go('customer-orders');
+}
+/* Admin has checked their own UPI/bank app and confirms the money actually arrived. Only now
+   does the order enter the kitchen/rider flow. Goes through the backend (JWT-checked) when one
+   is deployed; otherwise falls back to a direct client-side write (insecure demo mode). */
+async function confirmPaymentReceived(orderId){
+  if(S.adminToken){
+    try{
+      const res = await fetch(`/api/payments/${orderId}/confirm`, {method:'POST', headers:{'Authorization':'Bearer '+S.adminToken}});
+      if(!res.ok){ showToast(res.status===401?'Session expired — please log in again.':'Server rejected the request.'); return; }
+      showToast('Payment confirmed — sent to kitchen & riders.');
+      await pollShared(); render();
+      return;
+    }catch(e){ showToast('Could not reach the secure backend.'); return; }
+  }
+  const o = DB.orders.find(x=>x.id===orderId);
+  if(!o) return;
+  o.status = 'Placed';
+  const rest = restaurantById(o.restaurantId);
+  pushNotification('customer', o.customerPhone, `Payment confirmed for order #${o.id}. ${rest.name} is preparing your food!`, '✅');
+  pushNotification('all-riders', null, `New order #${o.id} available for pickup near ${rest.area}.`, '📦');
+  showToast('Payment confirmed — sent to kitchen & riders.');
+  render();
+}
+async function rejectPayment(orderId){
+  if(S.adminToken){
+    try{
+      const res = await fetch(`/api/payments/${orderId}/reject`, {method:'POST', headers:{'Authorization':'Bearer '+S.adminToken}});
+      if(!res.ok){ showToast(res.status===401?'Session expired — please log in again.':'Server rejected the request.'); return; }
+      showToast('Order marked as payment not received.');
+      await pollShared(); render();
+      return;
+    }catch(e){ showToast('Could not reach the secure backend.'); return; }
+  }
+  const o = DB.orders.find(x=>x.id===orderId);
+  if(!o) return;
+  o.status = 'PaymentRejected';
+  pushNotification('customer', o.customerPhone, `We couldn't verify your payment for order #${o.id}. Please call Gubbi Fast on ${DB.settings.adminPhone} or place the order again.`, '⚠️');
+  showToast('Order marked as payment not received.');
+  render();
+}
+
+function confirmClearAllOrders(){
+  if(!confirm(`Delete all ${DB.orders.length} order(s) and their notifications? This can't be undone.`)) return;
+  clearAllOrders();
+}
+async function clearAllOrders(){
+  try{
+    const {ok, data} = await apiCall('/api/admin/clear-orders', jsonPost({}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not clear orders.'); return; }
+    await pollShared();
+    showToast('All orders cleared.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.orders = [];
+  DB.notifications = [];
+  saveLive();
+  showToast('All orders cleared.');
+  render();
+}
+
+async function acceptOrder(orderId){
+  try{
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/accept`, jsonPost({riderId:S.riderId}));
+    if(!ok){ showToast((data&&data.error)||'Could not accept this order.'); return; }
+    startRiderLocationSharing(orderId);
+    await pollShared();
+    showToast('Order accepted — head to the restaurant.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const o = DB.orders.find(x=>x.id===orderId);
+  o.status = 'Accepted';
+  o.riderId = S.riderId;
+  const rider = riderById(S.riderId);
+  pushNotification('customer', o.customerPhone, `${rider.name} accepted your order #${o.id} and is heading to the restaurant.`, '🛵');
+  pushNotification('admin', null, `Order #${o.id} accepted by rider ${rider.name}.`, '✅');
+  startRiderLocationSharing(orderId);
+  showToast('Order accepted — head to the restaurant.');
+  render();
+}
+async function markPickedUp(orderId){
+  try{
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/pickup`, jsonPost({riderId:S.riderId}));
+    if(!ok){ showToast((data&&data.error)||'Could not update this order.'); return; }
+    await pollShared();
+    showToast('Marked as picked up. Deliver safe!');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const o = DB.orders.find(x=>x.id===orderId);
+  o.status = 'PickedUp';
+  pushNotification('customer', o.customerPhone, `Your order #${o.id} has been picked up and is on the way!`, '🚀');
+  pushNotification('admin', null, `Order #${o.id} picked up by rider.`, '📤');
+  showToast('Marked as picked up. Deliver safe!');
+  render();
+}
+async function markDelivered(orderId){
+  try{
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/deliver`, jsonPost({riderId:S.riderId}));
+    if(!ok){ showToast((data&&data.error)||'Could not update this order.'); return; }
+    stopRiderLocationSharing();
+    await pollShared();
+    showToast('Delivered! Great job.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const o = DB.orders.find(x=>x.id===orderId);
+  o.status = 'Delivered';
+  pushNotification('customer', o.customerPhone, `Order #${o.id} delivered. Enjoy your meal!`, '🎉');
+  pushNotification('admin', null, `Order #${o.id} delivered successfully.`, '✅');
+  stopRiderLocationSharing();
+  showToast('Delivered! Great job.');
+  render();
+}
+
+async function addRestaurant(name,cuisine,area,eta,emoji,image){
+  try{
+    const {ok, data} = await apiCall('/api/catalog/restaurants', jsonPost({name,cuisine,area,eta,emoji,image}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not add restaurant.'); return; }
+    await pollShared();
+    showToast('Restaurant added.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const id = 'r'+(DB.restaurants.length+1)+'_'+Date.now();
+  // Jitter slightly off the city-centre fallback so new restaurants still get a valid map pin
+  const lat = FALLBACK_LOC.lat + (Math.random()-0.5)*0.04;
+  const lng = FALLBACK_LOC.lng + (Math.random()-0.5)*0.04;
+  DB.restaurants.push({id,name,cuisine,area,eta,color:'#F2A93B',emoji: emoji||'🍴', lat, lng, image: image||null});
+  DB.menu[id] = [];
+  saveCatalog();
+  pushNotification('admin', null, `Restaurant "${name}" added to the platform.`, '🏬');
+  showToast('Restaurant added.');
+  render();
+}
+async function updateRestaurant(id, fields){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${id}`, jsonReq('PATCH', fields, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
+    S._editRestaurantFor = null;
+    await pollShared();
+    showToast('Restaurant updated.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const r = restaurantById(id);
+  if(!r) return;
+  Object.assign(r, fields);
+  S._editRestaurantFor = null;
+  saveCatalog();
+  showToast('Restaurant updated.');
+  render();
+}
+function confirmDeleteRestaurant(id){
+  const r = restaurantById(id);
+  if(!r || !confirm(`Delete "${r.name}" and its whole menu? This can't be undone.`)) return;
+  deleteRestaurant(id);
+}
+async function deleteRestaurant(id){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${id}`, {method:'DELETE', headers:authHeaders()});
+    if(!ok){ showToast((data&&data.error)||'Could not delete restaurant.'); return; }
+    if(S._adminMenuFor===id) S._adminMenuFor = null;
+    await pollShared();
+    showToast('Restaurant removed.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.restaurants = DB.restaurants.filter(r=>r.id!==id);
+  delete DB.menu[id];
+  DB.offers = DB.offers.filter(o=>o.restaurantId!==id);
+  if(S._adminMenuFor===id) S._adminMenuFor = null;
+  saveCatalog();
+  showToast('Restaurant removed.');
+  render();
+}
+async function addMenuItem(restId,name,price,veg,emoji,image){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${restId}/menu`, jsonPost({name,price,veg,emoji,image}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not add menu item.'); return; }
+    await pollShared();
+    showToast('Menu item added.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.menu[restId].push({id:'m_'+Date.now(), name, price:Number(price), veg, emoji: emoji||'🍽️', image: image||null});
+  saveCatalog();
+  showToast('Menu item added.');
+  render();
+}
+async function updateMenuItem(restId, itemId, fields){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${restId}/menu/${itemId}`, jsonReq('PATCH', fields, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
+    S._editMenuItemFor = null;
+    await pollShared();
+    showToast('Menu item updated.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const it = (DB.menu[restId]||[]).find(m=>m.id===itemId);
+  if(!it) return;
+  Object.assign(it, fields);
+  S._editMenuItemFor = null;
+  saveCatalog();
+  showToast('Menu item updated.');
+  render();
+}
+function confirmDeleteMenuItem(restId, itemId){
+  if(!confirm('Remove this item from the menu?')) return;
+  deleteMenuItem(restId, itemId);
+}
+async function deleteMenuItem(restId, itemId){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${restId}/menu/${itemId}`, {method:'DELETE', headers:authHeaders()});
+    if(!ok){ showToast((data&&data.error)||'Could not remove item.'); return; }
+    await pollShared();
+    showToast('Menu item removed.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.menu[restId] = (DB.menu[restId]||[]).filter(m=>m.id!==itemId);
+  saveCatalog();
+  showToast('Menu item removed.');
+  render();
+}
+async function addRider(name,phone,commissionPercent,password){
+  try{
+    const {ok, data} = await apiCall('/api/catalog/riders', jsonPost({name,phone,commissionPercent,password}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not add rider.'); return; }
+    await pollShared();
+    showToast('Rider added.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  // Local demo mode only: no backend to hash/verify the password server-side, so it's stored
+  // as-is on this device and checked client-side at login (see doRiderLogin's fallback).
+  DB.riders.push({id:'rd_'+Date.now(), name, phone, commissionPercent: Number(commissionPercent)||10, password});
+  saveCatalog();
+  pushNotification('admin', null, `Rider "${name}" added to the platform.`, '🛵');
+  showToast('Rider added.');
+  render();
+}
+async function updateRider(id, fields){
+  try{
+    const body = Object.assign({}, fields);
+    if(!body.password) delete body.password;
+    const {ok, data} = await apiCall(`/api/catalog/riders/${id}`, jsonReq('PATCH', body, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
+    await pollShared();
+    showToast('Rider updated.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const r = riderById(id);
+  if(!r) return;
+  r.name = fields.name; r.phone = fields.phone; r.commissionPercent = fields.commissionPercent;
+  if(fields.password) r.password = fields.password;
+  saveCatalog();
+  showToast('Rider updated.');
+  render();
+}
+function confirmDeleteRider(id){
+  const r = riderById(id);
+  if(!r || !confirm(`Remove rider "${r.name}"?`)) return;
+  deleteRider(id);
+}
+async function deleteRider(id){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/riders/${id}`, {method:'DELETE', headers:authHeaders()});
+    if(!ok){ showToast((data&&data.error)||'Could not remove rider.'); return; }
+    await pollShared();
+    showToast('Rider removed.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.riders = DB.riders.filter(r=>r.id!==id);
+  saveCatalog();
+  showToast('Rider removed.');
+  render();
+}
+
+async function addOffer(title,sub,emoji,bg,restaurantId){
+  try{
+    const {ok, data} = await apiCall('/api/catalog/offers', jsonPost({title,sub,emoji,bg,restaurantId}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not add offer.'); return; }
+    await pollShared();
+    showToast('Offer added.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.offers.push({id:'off_'+Date.now(), title, sub, emoji: emoji||'🎁', bg: bg||'#C1442E', restaurantId: restaurantId||null});
+  saveCatalog();
+  showToast('Offer added.');
+  render();
+}
+async function updateOffer(id, fields){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/offers/${id}`, jsonReq('PATCH', fields, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
+    S._editOfferFor = null;
+    await pollShared();
+    showToast('Offer updated.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const o = DB.offers.find(x=>x.id===id);
+  if(!o) return;
+  Object.assign(o, fields);
+  S._editOfferFor = null;
+  saveCatalog();
+  showToast('Offer updated.');
+  render();
+}
+function confirmDeleteOffer(id){
+  if(!confirm('Remove this offer?')) return;
+  deleteOffer(id);
+}
+async function deleteOffer(offerId){
+  try{
+    const {ok, data} = await apiCall(`/api/catalog/offers/${offerId}`, {method:'DELETE', headers:authHeaders()});
+    if(!ok){ showToast((data&&data.error)||'Could not remove offer.'); return; }
+    await pollShared();
+    showToast('Offer removed.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.offers = DB.offers.filter(o=>o.id!==offerId);
+  saveCatalog();
+  showToast('Offer removed.');
+  render();
+}
+
+/* ============ RENDER: ROUTE TRACKER (signature element) ============ */
+function routeTracker(status){
+  const idx = STATIONS.indexOf(status);
+  const pct = (idx/(STATIONS.length-1))*100;
+  return `
+  <div class="route">
+    <div class="route-track">
+      <div class="route-fill" style="width:${pct}%"></div>
+      <div class="route-marker" style="left:${pct}%">🛵</div>
+    </div>
+    <div class="route-stations">
+      ${STATIONS.map((s,i)=>`<div class="st ${i<idx?'done':(i===idx?'active':'')}">${STATION_LABEL[s]}</div>`).join('')}
+    </div>
+  </div>`;
+}
+/* Shown instead of the route tracker while an order is still in the payment phase
+   (AwaitingPayment / PaymentClaimed / PaymentRejected — none of which are in STATIONS).
+   forAdmin=true renders the admin's view of the same statuses — admin needs the customer's
+   name/phone to follow up, not the customer-facing "call us" prompt. */
+function paymentStatusBanner(o, forAdmin){
+  if(o.status==='AwaitingPayment'){
+    if(forAdmin) return `<div class="card" style="background:#FDF1DC;border-color:var(--marigold-dark);margin:10px 0;">
+      <div style="font-weight:700;font-size:13px;color:var(--marigold-dark);">⏳ Waiting for customer to pay</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+    </div>`;
+    return `<div class="card" style="background:#FDF1DC;border-color:var(--marigold-dark);margin:10px 0;">
+      <div style="font-weight:700;font-size:13px;color:var(--marigold-dark);">⏳ Payment not completed yet</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin:4px 0 10px;">Complete UPI payment so the restaurant can start preparing your order.</div>
+      <button class="btn btn-dark" style="width:auto;padding:9px 16px;" onclick="S.pendingOrderId='${o.id}'; go('customer-payment')">Complete payment</button>
+    </div>`;
+  }
+  if(o.status==='PaymentClaimed'){
+    if(forAdmin) return `<div class="card" style="background:#E6EEFB;margin:10px 0;">
+      <div style="font-weight:700;font-size:13px;color:#2453A8;">💳 Customer claims they paid</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Verify ${fmt(o.total)} in your UPI/bank app before confirming. Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+    </div>`;
+    return `<div class="card" style="background:#E6EEFB;margin:10px 0;">
+      <div style="font-weight:700;font-size:13px;color:#2453A8;">💳 Payment claimed — awaiting verification</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">The restaurant is checking their UPI/bank app. You'll be notified as soon as it's confirmed.</div>
+    </div>`;
+  }
+  if(forAdmin) return `<div class="card" style="background:#FCE9E3;margin:10px 0;">
+    <div style="font-weight:700;font-size:13px;color:var(--chili);">⚠️ Marked as payment not received</div>
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+  </div>`;
+  return `<div class="card" style="background:#FCE9E3;margin:10px 0;">
+    <div style="font-weight:700;font-size:13px;color:var(--chili);">⚠️ Payment not received</div>
+    <div class="meta" style="font-size:12px;color:var(--muted);margin:4px 0 10px;">Please call Gubbi Fast on <a class="linklike" href="tel:${DB.settings.adminPhone}">${DB.settings.adminPhone}</a> to sort out the payment, or just place the order again.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn btn-dark" style="width:auto;padding:9px 16px;text-decoration:none;" href="tel:${DB.settings.adminPhone}">📞 Call ${DB.settings.adminPhone}</a>
+      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="reorderFromRejected('${o.id}')">🔁 Place order again</button>
+    </div>
+  </div>`;
+}
+function reorderFromRejected(orderId){
+  const o = DB.orders.find(x=>x.id===orderId);
+  if(!o) return;
+  S.currentRestaurantId = o.restaurantId;
+  S.cart = {};
+  S.vegFilter = 'all';
+  go('customer-menu');
+}
+
+/* ============ SCREENS ============ */
+/* ---- CUSTOMER ---- */
+function screenCustomerLogin(){
+  return `
+  ${backbar('Customer login','customer-account')}
+  <div class="content">
+    <div class="card">
+      <div class="field"><label>Your name</label><input id="cName" placeholder="e.g. Anitha Rao"></div>
+      <div class="field"><label>Phone number</label><input id="cPhone" placeholder="98xxxxxxxx"></div>
+      <div class="field"><label>Delivery address</label><input id="cAddr" placeholder="e.g. Near Bus Stand, Gubbi"></div>
+      <button class="btn btn-primary" onclick="doCustomerLogin()">Log in & browse restaurants</button>
+    </div>
+  </div>`;
+}
+function doCustomerLogin(){
+  const name = document.getElementById('cName').value.trim() || 'Guest';
+  const phone = document.getElementById('cPhone').value.trim() || '—';
+  const addr = document.getElementById('cAddr').value.trim() || 'Home';
+  S.role='customer'; S.customerName=name; S.customerPhone=phone; S._pendingAddress=addr; S.homeVegFilter='all';
+  go('customer-restaurants');
+}
+
+function screenCustomerRestaurants(){
+  const q = (S.searchQuery||'').toLowerCase();
+  const cat = S.categoryFilter||'All';
+  const vf = S.homeVegFilter || 'all';
+  const cats = ['All','South Indian','Biryani','Thali','Sweets'];
+  let list = DB.restaurants.filter(r=>{
+    const matchesQ = !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q);
+    const matchesCat = cat==='All' || r.cuisine.toLowerCase().includes(cat.toLowerCase().split(' ')[0]);
+    const items = DB.menu[r.id] || [];
+    const matchesVeg = vf==='all' || items.some(it => vf==='veg' ? it.veg : !it.veg);
+    return matchesQ && matchesCat && matchesVeg;
+  });
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <div class="search-bar">
+      <span>🔍</span>
+      <input placeholder="Search for restaurants or dishes" value="${S.searchQuery||''}" oninput="setSearch(this.value)">
+    </div>
+
+    <div class="veg-filter-row">
+      <div class="veg-chip ${vf==='all'?'active':''}" onclick="setHomeVegFilter('all')">All</div>
+      <div class="veg-chip veg-opt ${vf==='veg'?'active':''}" onclick="setHomeVegFilter('veg')">🟢 Veg</div>
+      <div class="veg-chip nonveg-opt ${vf==='nonveg'?'active':''}" onclick="setHomeVegFilter('nonveg')">🔴 Non-Veg</div>
+    </div>
+
+    <div class="offers-row">
+      ${DB.offers.length===0?'':DB.offers.map(o=>`
+        <div class="offer-card" style="background:${o.bg};" onclick="openOffer('${o.id}')">
+          <div class="offer-card-text">
+            <div class="oe">${o.emoji}</div>
+            <div class="ot">${o.title}</div>
+            <div class="os">${o.sub}</div>
+          </div>
+          <img class="offer-card-img" src="${dummyImage(o.emoji, o.bg, 140, 140)}" alt="">
+        </div>`).join('')}
+    </div>
+
+    <div class="chip-row">
+      ${cats.map(c=>`<div class="cat-chip ${cat===c?'active':''}" onclick="setCategory('${c}')">${c}</div>`).join('')}
+    </div>
+
+    <h2 style="font-size:18px;margin:18px 0 12px;">Restaurants near ${S._pendingAddress||'you'}</h2>
+    ${list.length===0?`<div class="empty"><div class="big">🔍</div>No matches. Try a different search or filter.</div>`:
+    `<div class="restaurant-grid">${list.map(r=>{
+      const disc = offerTagFor(r.id);
+      const items = DB.menu[r.id] || [];
+      const isPureVeg = items.length>0 && items.every(it=>it.veg);
+      return `
+      <div class="shop-card" onclick="openRestaurant('${r.id}')">
+        <div class="shop-img-wrap">
+          ${restaurantImgTag(r, "shop-img")}
+          ${disc?`<div class="disc-tag">${disc}</div>`:''}
+          <div class="rating-tag">★ ${ratingFor(r)}</div>
+        </div>
+        <div class="r-info">
+          <h3>${r.name}</h3>
+          <div class="meta">${r.cuisine} · ${r.area}${isPureVeg?' · 🌱 Pure Veg':''}</div>
+          <div class="badge">⏱ ${r.eta}</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`}
+  </div>`;
+}
+function setSearch(v){ S.searchQuery=v; render(); document.querySelector('.search-bar input')?.focus(); }
+function setCategory(c){ S.categoryFilter=c; render(); }
+function setHomeVegFilter(v){ S.homeVegFilter=v; render(); }
+function openRestaurant(id){ S.currentRestaurantId=id; S.cart={}; S.vegFilter='all'; go('customer-menu'); }
+function openOffer(offerId){
+  const offer = DB.offers.find(o=>o.id===offerId);
+  if(!offer){ return; }
+  if(offer.restaurantId && restaurantById(offer.restaurantId)){
+    showToast(`${offer.emoji} ${offer.title} applied — browsing ${restaurantById(offer.restaurantId).name}`);
+    openRestaurant(offer.restaurantId);
+  } else {
+    showToast(`${offer.emoji} ${offer.title} — check back soon, this deal isn't linked to a restaurant yet.`);
+  }
+}
+
+/* ---- bottom tab bar (Home / Offers / Notifications / Account) ---- */
+function bottomNav(active){
+  const tabs = [
+    {id:'customer-restaurants', icon:'🏠', label:'Home'},
+    {id:'customer-offers', icon:'🎁', label:'Offers'},
+    {id:'customer-notifications', icon:'🔔', label:'Notifications', badge:unreadNotifCount()},
+    {id:'customer-account', icon:'👤', label:'Account'},
+  ];
+  return `<div class="bottom-nav">
+    ${tabs.map(t=>`<div class="bn-item ${active===t.id?'active':''}" onclick="${t.id==='customer-notifications'?'openNotificationsTab()':`go('${t.id}')`}">
+      <div class="bn-icon">${t.icon}${t.badge?`<span class="notif-dot" style="top:-6px;right:-10px;">${t.badge}</span>`:''}</div>
+      <div class="bn-label">${t.label}</div>
+    </div>`).join('')}
+  </div>`;
+}
+function openNotificationsTab(){
+  mySessionNotifications().forEach(n=>{ n.read=true; n._surfaced=true; });
+  go('customer-notifications');
+}
+/* Floating WhatsApp/Instagram contact buttons — both links editable in Admin > Payments. */
+function floatingSocial(){
+  return `<div class="floating-social">
+    <a class="fs-btn fs-instagram" href="${DB.settings.instagramUrl}" target="_blank" rel="noopener" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" width="25" height="25" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="white" stroke-width="2"/><circle cx="12" cy="12" r="4.6" stroke="white" stroke-width="2"/><circle cx="17.6" cy="6.4" r="1.3" fill="white"/></svg>
+    </a>
+    <a class="fs-btn fs-whatsapp" href="${DB.settings.whatsappUrl}" target="_blank" rel="noopener" aria-label="WhatsApp">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M12 2.2C6.6 2.2 2.3 6.5 2.3 11.9c0 1.8.5 3.5 1.4 5L2.2 21.8l5.1-1.4c1.4.8 3 1.2 4.7 1.2 5.4 0 9.7-4.3 9.7-9.7S17.4 2.2 12 2.2Zm0 17.7c-1.5 0-3-.4-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3a8 8 0 1 1 6.9 3.8Zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1-.2.2-.7.8-.8.9-.1.2-.3.2-.6.1-.2-.1-1-.4-2-1.2-.7-.6-1.2-1.4-1.4-1.6-.1-.2 0-.4.1-.5.1-.1.2-.3.4-.4.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4-.1-.1-.6-1.4-.8-1.9-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2.9 2.4c.1.2 1.6 2.5 4 3.5.5.2 1 .4 1.3.5.6.2 1.1.2 1.5.1.5-.1 1.4-.6 1.6-1.1.2-.5.2-1 .1-1.1 0-.1-.2-.2-.4-.3Z"/></svg>
+    </a>
+  </div>`;
+}
+function screenCustomerOffers(){
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <h2 style="font-size:20px;margin-bottom:14px;">Offers</h2>
+    ${DB.offers.length===0?`<div class="empty"><div class="big">🎁</div>No offers right now — check back soon.</div>`:
+    DB.offers.map(o=>`
+      <div class="offer-card" style="background:${o.bg};width:100%;margin-bottom:12px;" onclick="openOffer('${o.id}')">
+        <div class="offer-card-text">
+          <div class="oe">${o.emoji}</div>
+          <div class="ot">${o.title}</div>
+          <div class="os">${o.sub}</div>
+        </div>
+        <img class="offer-card-img" src="${dummyImage(o.emoji, o.bg, 140, 140)}" alt="">
+      </div>`).join('')}
+  </div>`;
+}
+function screenCustomerNotifications(){
+  const mine = mySessionNotifications();
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <h2 style="font-size:20px;margin-bottom:14px;">Notifications</h2>
+    ${!S.role?`<div class="empty"><div class="big">🔔</div>Log in to see updates about your orders.<br><br>
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px;display:inline-flex;" onclick="go('customer-login')">Login / Sign up</button></div>`:
+    mine.length===0?`<div class="empty"><div class="big">🔕</div>No notifications yet.</div>`:
+    mine.map(n=>`
+      <div class="card" style="display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:18px;">${n.icon}</span>
+        <div><div style="font-size:13.5px;">${n.message}</div><div class="meta" style="font-size:11px;color:var(--muted);margin-top:2px;">${n.time}</div></div>
+      </div>`).join('')}
+  </div>`;
+}
+function screenCustomerAccount(){
+  if(S.role==='customer'){
+    return `
+    ${topbarLogged()}
+    <div class="content">
+      <div class="card">
+        <div style="font-weight:700;font-size:16px;">${S.customerName}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">${S.customerPhone}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:2px;">📍 ${S._pendingAddress||'No address saved'}</div>
+      </div>
+      <button class="btn btn-outline" onclick="go('customer-orders')">📦 My Orders</button>
+      <button class="btn btn-ghost" style="margin-top:10px;" onclick="logout()">🚪 Logout</button>
+    </div>`;
+  }
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <div class="card" style="text-align:center;">
+      <div style="font-size:34px;margin-bottom:6px;">👋</div>
+      <div style="font-weight:700;font-size:15px;">You're browsing as a guest</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin:6px 0 14px;">Log in to track orders and get notified about your delivery.</div>
+      <button class="btn btn-primary" onclick="go('customer-login')">Login / Sign up</button>
+    </div>
+    <div class="section-title">Other logins</div>
+    <div class="role-grid">
+      <div class="role-card" onclick="go('rider-login')">
+        <div class="icon" style="background:#E6EEFB;">🛵</div>
+        <div class="txt"><strong>Rider Login</strong><span>Accept & deliver orders</span></div>
+        <div class="arrow">→</div>
+      </div>
+      <div class="role-card" onclick="go('admin-login')">
+        <div class="icon" style="background:#EAE3F4;">🗂️</div>
+        <div class="txt"><strong>Admin Login</strong><span>Manage restaurants, riders & offers</span></div>
+        <div class="arrow">→</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function screenCustomerMenu(){
+  const r = restaurantById(S.currentRestaurantId);
+  const allItems = DB.menu[S.currentRestaurantId] || [];
+  const hasVeg = allItems.some(it=>it.veg);
+  const hasNonVeg = allItems.some(it=>!it.veg);
+  const isMixed = hasVeg && hasNonVeg;
+  const isPureVeg = allItems.length>0 && !hasNonVeg;
+  const vf = isMixed ? (S.vegFilter || 'all') : 'all';
+  const items = allItems.filter(it => vf==='all' ? true : vf==='veg' ? it.veg : !it.veg);
+  return `
+  ${backbar(r.name,'customer-restaurants')}
+  ${restaurantImgTag(r, "menu-hero-img")}
+  <div class="content" style="padding-top:14px;padding-bottom:${cartCount()>0?'110px':'20px'};">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="meta" style="color:var(--muted);font-size:12px;">${r.cuisine} · ${r.area} · ⏱ ${r.eta}${isPureVeg?' · 🌱 Pure Veg':''}</div>
+      <div class="rating-tag" style="position:static;">★ ${ratingFor(r)}</div>
+    </div>
+    ${isMixed?`
+    <div class="veg-filter-row">
+      <div class="veg-chip ${vf==='all'?'active':''}" onclick="setVegFilter('all')">All</div>
+      <div class="veg-chip veg-opt ${vf==='veg'?'active':''}" onclick="setVegFilter('veg')">🟢 Veg</div>
+      <div class="veg-chip nonveg-opt ${vf==='nonveg'?'active':''}" onclick="setVegFilter('nonveg')">🔴 Non-Veg</div>
+    </div>`:''}
+    ${items.length===0?`<div class="empty"><div class="big">🍽️</div>${allItems.length===0?'Menu coming soon.':'No items match this filter.'}</div>`:
+      items.map(it=>`
+      <div class="m-item">
+        ${itemImgTag(it, "m-img")}
+        <div class="m-info">
+          <h4>${it.name}</h4>
+          <div class="${it.veg?'veg':'nonveg'}">${it.veg?'● VEG':'● NON-VEG'}</div>
+          <div class="m-price">${fmt(it.price)}</div>
+        </div>
+        ${S.cart[it.id] ? `
+          <div class="qty-ctrl">
+            <button onclick="changeQty('${it.id}',-1)">−</button>
+            <span>${S.cart[it.id]}</span>
+            <button onclick="changeQty('${it.id}',1)">+</button>
+          </div>` : `<button class="add-btn" onclick="changeQty('${it.id}',1)">ADD</button>`}
+      </div>`).join('')}
+  </div>
+  ${cartCount()>0?`
+  <div class="cart-bar" onclick="go('customer-cart')">
+    <div class="l">${cartCount()} item${cartCount()>1?'s':''} added</div>
+    <div class="r">View cart · ${fmt(cartTotal())} →</div>
+  </div>`:''}`;
+}
+function setVegFilter(v){ S.vegFilter = v; render(); }
+function changeQty(itemId,delta){
+  const q = (S.cart[itemId]||0)+delta;
+  if(q<=0) delete S.cart[itemId]; else S.cart[itemId]=q;
+  render();
+}
+
+function screenCustomerCart(){
+  const r = restaurantById(S.currentRestaurantId);
+  const items = DB.menu[S.currentRestaurantId];
+  const lines = Object.entries(S.cart);
+  return `
+  ${backbar('Your cart','customer-menu')}
+  <div class="content">
+    <div class="meta" style="color:var(--muted);font-size:12px;margin-bottom:12px;">from ${r.name}</div>
+    ${lines.length===0?`<div class="empty"><div class="big">🛒</div>Cart is empty.</div>`:
+    `<div class="card">
+      ${lines.map(([id,qty])=>{
+        const it = items.find(i=>i.id===id);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;">
+          <span>${it.emoji} ${it.name}</span>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="qty-ctrl">
+              <button onclick="changeQty('${it.id}',-1)">−</button>
+              <span>${qty}</span>
+              <button onclick="changeQty('${it.id}',1)">+</button>
+            </div>
+            <span class="mono" style="min-width:56px;text-align:right;">${fmt(it.price*qty)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:space-between;padding-top:12px;font-weight:700;">
+        <span>Total</span><span class="mono">${fmt(cartTotal())}</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label>Deliver to</label>
+        <input id="addrEdit" value="${S._pendingAddress||''}" placeholder="Flat/house no., street, area">
+      </div>
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="useCurrentLocationForAddress()">📍 Use my current location</button>
+      ${S._locCaptured?`<div class="meta" style="font-size:11px;color:var(--green);margin-top:8px;">✅ Live location added — your rider can navigate straight to you.</div>`:''}
+    </div>
+    <div class="card">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;">Payment method</div>
+      <div class="veg-filter-row" style="margin:0;">
+        <div class="veg-chip ${(S.paymentChoice||'upi')==='upi'?'active':''}" onclick="setPaymentChoice('upi')">📲 UPI (PhonePe/Paytm/GPay)</div>
+        <div class="veg-chip ${S.paymentChoice==='cod'?'active':''}" onclick="setPaymentChoice('cod')">💵 Cash on delivery</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="confirmAndPlace()">${S.paymentChoice==='cod'?'Place order':'Continue to pay'} · ${fmt(cartTotal())}</button>`}
+  </div>`;
+}
+function setPaymentChoice(v){ S.paymentChoice = v; render(); }
+/* Reverse-geocodes via OpenStreetMap's free Nominatim API (no key needed) so the address field
+   fills in automatically instead of the customer having to type it out. */
+async function useCurrentLocationForAddress(){
+  if(!navigator.geolocation){ showToast("Location isn't supported on this device — please type your address."); return; }
+  showToast('📍 Getting your location…');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    S._pendingLat = lat; S._pendingLng = lng; S._locCaptured = true;
+    let address = `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    try{
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+      if(res.ok){
+        const data = await res.json();
+        if(data && data.display_name) address = data.display_name;
+      }
+    }catch(e){ /* reverse geocoding unavailable — fall back to coordinates */ }
+    S._pendingAddress = address;
+    showToast('📍 Location added.');
+    render();
+  }, ()=>{
+    showToast("Couldn't access your location — please type your address instead.");
+  }, {timeout:8000});
+}
+/* Guests can browse, add to cart and open the cart freely — login is only required at the
+   final "place order" tap, matching real food-delivery apps (checkout gates the login, not
+   browsing). */
+function confirmAndPlace(){
+  const addrEl = document.getElementById('addrEdit');
+  if(addrEl) S._pendingAddress = addrEl.value.trim() || S._pendingAddress;
+  if(!S.customerPhone){ go('customer-checkout-login'); return; }
+  captureLocationThenPlaceOrder();
+}
+function screenCustomerCheckoutLogin(){
+  return `
+  ${backbar('Log in to place your order','customer-cart')}
+  <div class="content">
+    <div class="card">
+      <div class="field"><label>Your name</label><input id="ccName" placeholder="e.g. Anitha Rao"></div>
+      <div class="field"><label>Phone number</label><input id="ccPhone" placeholder="98xxxxxxxx"></div>
+      <div class="field"><label>Delivery address</label><input id="ccAddr" value="${S._pendingAddress||''}" placeholder="e.g. Near Bus Stand, Gubbi"></div>
+      <button class="btn btn-primary" onclick="submitCheckoutLogin()">Continue to checkout</button>
+    </div>
+  </div>`;
+}
+function submitCheckoutLogin(){
+  const name = document.getElementById('ccName').value.trim();
+  const phone = document.getElementById('ccPhone').value.trim();
+  const addr = document.getElementById('ccAddr').value.trim();
+  if(!name || !phone){ showToast('Enter your name and phone number.'); return; }
+  S.role='customer'; S.customerName=name; S.customerPhone=phone; S._pendingAddress = addr || S._pendingAddress || 'Home';
+  captureLocationThenPlaceOrder();
+}
+
+function screenCustomerPayment(){
+  const o = DB.orders.find(x=>x.id===S.pendingOrderId);
+  if(!o) return screenCustomerOrders();
+  const rest = restaurantById(o.restaurantId);
+  const link = upiLink(o.total, o.id);
+  return `
+  ${backbar('Complete payment','customer-cart')}
+  <div class="content">
+    <div class="card" style="text-align:center;">
+      <div class="meta" style="font-size:12px;color:var(--muted);">Pay for order #${o.id} at ${rest.name}</div>
+      <div style="font-size:30px;font-weight:800;margin:8px 0;">${fmt(o.total)}</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);">to <strong>${DB.settings.upiName}</strong> · UPI ID: <span class="mono">${DB.settings.upiId}</span></div>
+      <a class="btn btn-primary" style="text-decoration:none;margin-top:14px;" href="${link}">📲 Pay via UPI app (PhonePe / Paytm / GPay)</a>
+      <div class="footer-note" style="margin-top:10px;">Opens your UPI app with the amount and payee pre-filled. On a desktop browser this link won't open an app — use a phone, or pay manually to the UPI ID above.</div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">⚠️ Please note</div>
+      <div class="meta" style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+        This site can't automatically confirm UPI payments — there's no secure way for a plain website to verify money reached the payee.
+        After paying, tap "I've completed payment" below. ${rest.name} will check their own UPI/bank app and confirm before your order is prepared.
+      </div>
+    </div>
+    <button class="btn btn-dark" onclick="markPaymentClaimed('${o.id}')">✅ I've completed payment</button>
+    <button class="btn btn-ghost" style="margin-top:8px;" onclick="go('customer-orders')">I'll pay later — view my orders</button>
+  </div>`;
+}
+
+function screenCustomerOrders(){
+  const mine = DB.orders.filter(o=>o.customerPhone===S.customerPhone);
+  return `
+  ${backbar('My orders','customer-restaurants')}
+  <div class="content">
+    ${mine.length===0?`<div class="empty"><div class="big">📭</div>No orders yet.<br><br>
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px;display:inline-flex;" onclick="go('customer-restaurants')">Browse restaurants</button></div>`:
+    mine.map(o=>{
+      const r = restaurantById(o.restaurantId);
+      const rider = o.riderId ? riderById(o.riderId) : null;
+      const isPaymentPhase = !STATIONS.includes(o.status);
+      return `
+      <div class="order-card">
+        <div class="order-top">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+            <div class="order-id">#${o.id} · ${o.createdAt}</div>
+          </div>
+          <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
+        </div>
+        ${isPaymentPhase?paymentStatusBanner(o):routeTracker(o.status)}
+        ${(o.status==='PickedUp'||o.status==='Accepted')?`<div data-map-order="${o.id}" style="height:170px;border-radius:12px;margin:10px 0;background:var(--paper);"></div>`:''}
+        ${orderItemThumbs(o)}
+        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
+          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <span class="badge" style="background:var(--green-light);color:var(--green);">💵 ${o.paymentMethod}</span>
+          <span class="badge" style="background:${o.locShared?'#E6EEFB':'var(--paper)'};color:${o.locShared?'#2453A8':'var(--muted)'};">${o.locShared?'📍 Live location shared':'📍 '+o.address}</span>
+        </div>
+        ${rider?`<div class="meta" style="font-size:12px;margin-top:8px;">🛵 ${rider.name} · ${rider.phone}</div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* ---- RIDER ---- */
+function screenRiderLogin(){
+  return `
+  ${backbar('Rider login','customer-account')}
+  <div class="content">
+    <div class="card">
+      <div class="field">
+        <label>Rider profile</label>
+        <select id="riderSelect">
+          ${DB.riders.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Password</label><input id="riderPassword" type="password" placeholder="Ask admin for your password"></div>
+      <button class="btn btn-green" onclick="doRiderLogin()">Go online</button>
+    </div>
+  </div>`;
+}
+/* Verifies against the backend (password hash checked server-side, never shipped to the
+   browser) when one is deployed. Falls back to comparing the plaintext password stored on this
+   device (local demo mode only — see addRider) when no backend is reachable at all. */
+async function doRiderLogin(){
+  const riderId = document.getElementById('riderSelect').value;
+  const password = document.getElementById('riderPassword').value;
+  if(!riderId){ showToast('Add a rider from Admin first.'); return; }
+  if(!password){ showToast('Enter your password.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/riders/login', jsonPost({riderId, password}));
+    if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
+    S.role='rider';
+    S.riderId = riderId;
+    go('rider-dashboard');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const rider = riderById(riderId);
+  if(!rider || rider.password !== password){ showToast('Incorrect password.'); return; }
+  S.role='rider';
+  S.riderId = riderId;
+  go('rider-dashboard');
+}
+
+function screenRiderDashboard(){
+  const me = riderById(S.riderId);
+  const pct = me.commissionPercent||0;
+  const available = DB.orders.filter(o=>o.status==='Placed');
+  const mine = DB.orders.filter(o=>o.riderId===S.riderId && o.status!=='Delivered');
+  const delivered = DB.orders.filter(o=>o.riderId===S.riderId && o.status==='Delivered');
+  const totalEarnings = delivered.reduce((s,o)=>s+Math.round(o.total*pct/100),0);
+  const tab = S.riderTab||'orders';
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <div class="stat-grid">
+      <div class="stat"><div class="n">${mine.length}</div><div class="l">Active</div></div>
+      <div class="stat"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+    </div>
+    <div class="tab-row">
+      <div class="tab ${tab==='orders'?'active':''}" onclick="setRiderTab('orders')">Orders</div>
+      <div class="tab ${tab==='earnings'?'active':''}" onclick="setRiderTab('earnings')">Earnings</div>
+    </div>
+
+    ${tab==='earnings'?`
+    <div class="earnings-total">
+      <div class="et-label">💰 Total Earnings (${pct}% commission)</div>
+      <div class="et-amount">${fmt(totalEarnings)}</div>
+      <div class="et-sub">${delivered.length} delivered order${delivered.length===1?'':'s'} · rate set by admin</div>
+    </div>
+    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>No earnings yet — deliver an order to see it here.</div>`:`
+    <div class="earn-table">
+      <div class="earn-table-head">
+        <div>Order</div><div>Order Price</div><div>Your Earning</div>
+      </div>
+      ${delivered.map(o=>{
+        const r = restaurantById(o.restaurantId);
+        return `<div class="earn-table-row">
+          <div class="et-name">${r.emoji} #${o.id}</div>
+          <div class="et-val">${fmt(o.total)}</div>
+          <div class="et-val earn">${fmt(Math.round(o.total*pct/100))}</div>
+        </div>`;
+      }).join('')}
+      <div class="earn-table-row total-row">
+        <div class="et-name">Total</div>
+        <div class="et-val">${fmt(delivered.reduce((s,o)=>s+o.total,0))}</div>
+        <div class="et-val earn">${fmt(totalEarnings)}</div>
+      </div>
+    </div>`}
+    ` : `
+    ${mine.length>0?`
+    <div class="section-title">Your active deliveries</div>
+    ${mine.map(o=>{
+      const r = restaurantById(o.restaurantId);
+      return `
+      <div class="order-card">
+        <div class="order-top">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+            <div class="order-id">#${o.id} → ${o.address}</div>
+          </div>
+          <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]}</div>
+        </div>
+        ${routeTracker(o.status)}
+        ${o.status==='PickedUp'?`<div data-map-order="${o.id}" style="height:170px;border-radius:12px;margin:10px 0;background:var(--paper);"></div>`:''}
+        ${orderItemThumbs(o)}
+        <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
+          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · Customer: ${o.customerName} (${o.customerPhone})
+        </div>
+        <div class="badge" style="background:var(--green-light);color:var(--green);margin-bottom:8px;">✅ Payment already verified — nothing to collect</div>
+        <div style="margin-bottom:10px;">
+          <span class="badge" style="background:${o.locShared?'#E6EEFB':'var(--paper)'};color:${o.locShared?'#2453A8':'var(--muted)'};">${o.locShared?'📍 Live GPS shared':'📍 Address only'}</span>
+        </div>
+        ${o.status==='Accepted'?`
+          <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:8px;">🏬 Head to the restaurant counter and collect the order — no directions needed, you know the way.</div>
+          <button class="btn btn-dark" onclick="markPickedUp('${o.id}')">Mark picked up from restaurant</button>`:''}
+        ${o.status==='PickedUp'?`
+          <a class="btn btn-outline" style="text-decoration:none;margin-bottom:8px;" target="_blank" rel="noopener" href="${mapsLink(o.custLat,o.custLng)}">🧭 Navigate to ${o.customerName} (${o.address})</a>
+          <button class="btn btn-green" onclick="markDelivered('${o.id}')">Mark delivered to customer</button>`:''}
+      </div>`;
+    }).join('')}` : ''}
+
+    <div class="section-title">Available orders nearby</div>
+    ${available.length===0?`<div class="empty"><div class="big">✅</div>No new orders right now.</div>`:
+    available.map(o=>{
+      const r = restaurantById(o.restaurantId);
+      return `
+      <div class="order-card">
+        <div class="order-top">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+            <div class="order-id">#${o.id} · ${r.area} → ${o.address}</div>
+          </div>
+          <div class="status-pill status-Placed">New</div>
+        </div>
+        ${orderItemThumbs(o)}
+        <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
+          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        </div>
+        <div class="badge" style="background:var(--green-light);color:var(--green);margin-bottom:10px;">✅ Payment verified by admin</div>
+        <button class="btn btn-primary" onclick="acceptOrder('${o.id}')">Accept order</button>
+      </div>`;
+    }).join('')}
+    `}
+  </div>`;
+}
+function setRiderTab(t){ S.riderTab = t; render(); }
+
+/* ---- ADMIN ---- */
+function screenAdminLogin(){
+  return `
+  ${backbar('Admin login','customer-account')}
+  <div class="content">
+    <div class="card">
+      <div class="field"><label>Admin password</label><input id="aPass" type="password" placeholder="Enter admin password"></div>
+      <button class="btn btn-dark" onclick="doAdminLogin()">Log in to dashboard</button>
+    </div>
+  </div>`;
+}
+/* Password is checked entirely server-side (api/index.py) — nothing about the password or the
+   check itself ever reaches the browser, so it can't be read or bypassed via devtools/inspect. */
+async function doAdminLogin(){
+  const p = document.getElementById('aPass').value;
+  try{
+    const res = await fetch('/api/admin/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:p})});
+    if(res.ok){
+      const data = await res.json();
+      S.adminToken = data.token;
+      S.role='admin';
+      go('admin-dashboard');
+      return;
+    }
+    if(res.status===401){ showToast('Incorrect admin password.'); return; }
+    showToast('Admin login is unavailable right now — check the backend deployment.');
+  }catch(e){
+    showToast("Couldn't reach the admin backend — is it deployed? See README.md.");
+  }
+}
+
+function screenAdminDashboard(){
+  const tab = S.adminTab;
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <div class="stat-grid">
+      <div class="stat stat-clickable" onclick="setAdminTab('restaurants')"><div class="n">${DB.restaurants.length}</div><div class="l">Restaurants</div></div>
+      <div class="stat stat-clickable" onclick="setAdminTab('riders')"><div class="n">${DB.riders.length}</div><div class="l">Riders</div></div>
+      <div class="stat stat-clickable" onclick="setAdminTab('orders')"><div class="n">${DB.orders.length}</div><div class="l">Orders</div></div>
+    </div>
+    <div class="tab-row">
+      <div class="tab ${tab==='restaurants'?'active':''}" onclick="setAdminTab('restaurants')">Restaurants</div>
+      <div class="tab ${tab==='riders'?'active':''}" onclick="setAdminTab('riders')">Riders</div>
+      <div class="tab ${tab==='offers'?'active':''}" onclick="setAdminTab('offers')">Offers</div>
+      <div class="tab ${tab==='orders'?'active':''}" onclick="setAdminTab('orders')">Orders</div>
+      <div class="tab ${tab==='settings'?'active':''}" onclick="setAdminTab('settings')">Payments</div>
+    </div>
+    ${tab==='restaurants'?adminRestaurants():''}
+    ${tab==='riders'?adminRiders():''}
+    ${tab==='offers'?adminOffers():''}
+    ${tab==='orders'?adminOrders():''}
+    ${tab==='settings'?adminSettings():''}
+  </div>`;
+}
+function setAdminTab(t){ S.adminTab=t; render(); }
+
+function adminSettings(){
+  return `
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">UPI payment settings</div>
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Customers pay this UPI ID directly via their own PhonePe/Paytm/GPay app at checkout. This app
+      never touches the money — it just pre-fills the payment app with these details.
+    </div>
+    <div class="field"><label>UPI ID (VPA)</label><input id="setUpiId" value="${DB.settings.upiId}" placeholder="yourname@okhdfcbank"></div>
+    <div class="field"><label>Payee display name</label><input id="setUpiName" value="${DB.settings.upiName}"></div>
+    <div class="field"><label>Admin contact phone (for payment disputes)</label><input id="setAdminPhone" value="${DB.settings.adminPhone}"></div>
+    <div class="field"><label>Instagram URL</label><input id="setInstagram" value="${DB.settings.instagramUrl||''}" placeholder="https://www.instagram.com/yourhandle/"></div>
+    <div class="field"><label>WhatsApp URL</label><input id="setWhatsapp" value="${DB.settings.whatsappUrl||''}" placeholder="https://wa.me/91xxxxxxxxxx"></div>
+    <button class="btn btn-primary" onclick="submitSettings()">Save payment settings</button>
+    <div class="footer-note" style="margin-top:12px;">⚠️ There is no automatic way to verify a UPI payment from a website. Always double-check your UPI/bank app before tapping "Confirm payment received" on the Orders tab.</div>
+  </div>
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">Change admin password</div>
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Sets your own admin password, stored securely on the backend. The default password
+      (whatever ADMIN_PASSWORD is set to on the server) keeps working too — this just adds a
+      second one only you know.
+    </div>
+    <div class="field"><label>New admin password</label><input id="setAdminPassword" type="password" placeholder="At least 6 characters"></div>
+    <button class="btn btn-outline" onclick="submitAdminPassword()">Save new admin password</button>
+  </div>`;
+}
+async function submitAdminPassword(){
+  const pw = document.getElementById('setAdminPassword').value;
+  if(!pw || pw.length<6){ showToast('Enter a password with at least 6 characters.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/admin/change-password', jsonPost({newPassword:pw}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not change password.'); return; }
+    document.getElementById('setAdminPassword').value = '';
+    showToast('Admin password updated.');
+  }catch(e){ showToast('Could not reach the backend to change the password.'); }
+}
+async function submitSettings(){
+  const upiId = document.getElementById('setUpiId').value.trim();
+  if(!upiId){ showToast('Enter a valid UPI ID.'); return; }
+  const upiName = document.getElementById('setUpiName').value.trim() || DB.settings.upiName;
+  const adminPhone = document.getElementById('setAdminPhone').value.trim() || DB.settings.adminPhone;
+  const instagramUrl = document.getElementById('setInstagram').value.trim() || DB.settings.instagramUrl;
+  const whatsappUrl = document.getElementById('setWhatsapp').value.trim() || DB.settings.whatsappUrl;
+  try{
+    const {ok, data} = await apiCall('/api/settings', jsonPost({upiId, upiName, adminPhone, instagramUrl, whatsappUrl}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not save settings.'); return; }
+    await pollShared();
+    showToast('Payment settings saved.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.settings.upiId = upiId;
+  DB.settings.upiName = upiName;
+  DB.settings.adminPhone = adminPhone;
+  DB.settings.instagramUrl = instagramUrl;
+  DB.settings.whatsappUrl = whatsappUrl;
+  saveCatalog();
+  showToast('Payment settings saved.');
+  render();
+}
+
+function adminRestaurants(){
+  return `
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">Add a restaurant</div>
+    <div class="field"><label>Name</label><input id="newRName" placeholder="e.g. Cubbon Curry House"></div>
+    <div class="field"><label>Cuisine</label><input id="newRCuisine" placeholder="e.g. North Karnataka"></div>
+    <div class="field"><label>Area</label><input id="newRArea" placeholder="e.g. B.H. Road, Gubbi"></div>
+    <div class="field"><label>Delivery ETA</label><input id="newREta" placeholder="e.g. 20-25 min"></div>
+    <div class="field"><label>Emoji icon (used if no photo is added)</label><input id="newREmoji" placeholder="🍛" maxlength="2"></div>
+    <div class="field">
+      <label>Restaurant image — paste a URL, or upload from device</label>
+      <input id="newRImageUrl" placeholder="https://... (optional)" oninput="document.getElementById('newRImgPreview').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
+      <div class="img-upload-row">
+        <img id="newRImgPreview" class="img-preview" src="${dummyImage('🍴','#F2A93B',80,80)}">
+        <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="newRImageFile" onchange="handleImageUpload(this,'newRImgPreview')"></label>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="submitAddRestaurant()">Add restaurant</button>
+  </div>
+  <div class="section-title">All restaurants</div>
+  ${DB.restaurants.map(r=>`
+    <div class="list-row">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="openAdminMenu('${r.id}')">
+        ${restaurantImgTag(r, "swatch").replace('class="swatch"', 'class="swatch" style="object-fit:cover;"')}
+        <div class="li"><strong>${r.name}</strong><span>${DB.menu[r.id].length} menu items · ${r.area} · tap to manage menu</span></div>
+      </div>
+      <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="event.stopPropagation(); openEditRestaurant('${r.id}')">✏️</button>
+      <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="event.stopPropagation(); confirmDeleteRestaurant('${r.id}')">Remove</button>
+    </div>
+    ${S._editRestaurantFor===r.id?editRestaurantForm(r):''}`).join('')}
+  ${S._adminMenuFor?adminMenuEditor(S._adminMenuFor):''}
+  `;
+}
+function submitAddRestaurant(){
+  const n = document.getElementById('newRName').value.trim();
+  if(!n){ showToast('Enter a restaurant name.'); return; }
+  const fileInput = document.getElementById('newRImageFile');
+  const image = (fileInput && fileInput.dataset.uploaded) || document.getElementById('newRImageUrl').value.trim() || null;
+  addRestaurant(n,
+    document.getElementById('newRCuisine').value.trim()||'Multi-cuisine',
+    document.getElementById('newRArea').value.trim()||'Gubbi',
+    document.getElementById('newREta').value.trim()||'25-30 min',
+    document.getElementById('newREmoji').value.trim()||'🍴',
+    image);
+}
+function openEditRestaurant(id){ S._editRestaurantFor = (S._editRestaurantFor===id)?null:id; render(); }
+function editRestaurantForm(r){
+  return `
+  <div class="card" style="margin:6px 0 14px;">
+    <div class="section-title" style="margin-top:0;">Edit ${r.name}</div>
+    <div class="field"><label>Name</label><input id="editRName_${r.id}" value="${r.name}"></div>
+    <div class="field"><label>Cuisine</label><input id="editRCuisine_${r.id}" value="${r.cuisine}"></div>
+    <div class="field"><label>Area</label><input id="editRArea_${r.id}" value="${r.area}"></div>
+    <div class="field"><label>Delivery ETA</label><input id="editREta_${r.id}" value="${r.eta}"></div>
+    <div class="field"><label>Emoji icon</label><input id="editREmoji_${r.id}" value="${r.emoji}" maxlength="2"></div>
+    <div class="field"><label>Rating (out of 5)</label><input id="editRRating_${r.id}" type="number" min="1" max="5" step="0.1" value="${ratingFor(r)}"></div>
+    <div class="field"><label>Image URL</label><input id="editRImage_${r.id}" value="${r.image||''}"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="width:auto;padding:9px 16px;" onclick="submitEditRestaurant('${r.id}')">Save changes</button>
+      <button class="btn btn-ghost" onclick="openEditRestaurant('${r.id}')">Cancel</button>
+    </div>
+  </div>`;
+}
+function submitEditRestaurant(id){
+  updateRestaurant(id, {
+    name: document.getElementById(`editRName_${id}`).value.trim(),
+    cuisine: document.getElementById(`editRCuisine_${id}`).value.trim(),
+    area: document.getElementById(`editRArea_${id}`).value.trim(),
+    eta: document.getElementById(`editREta_${id}`).value.trim(),
+    emoji: document.getElementById(`editREmoji_${id}`).value.trim(),
+    rating: Number(document.getElementById(`editRRating_${id}`).value) || undefined,
+    image: document.getElementById(`editRImage_${id}`).value.trim() || null,
+  });
+}
+function openAdminMenu(id){ S._adminMenuFor = (S._adminMenuFor===id)? null : id; render(); }
+function adminMenuEditor(restId){
+  const r = restaurantById(restId);
+  const items = DB.menu[restId];
+  return `
+  <div class="card" style="margin-top:14px;">
+    <div class="section-title" style="margin-top:0;">Menu for ${r.name}</div>
+    ${items.map(it=>`
+      <div class="list-row">
+        ${itemImgTag(it, "swatch").replace('class="swatch"', 'class="swatch" style="object-fit:cover;"')}
+        <div class="li"><strong>${it.name}</strong><span>${it.veg?'Veg':'Non-veg'} · ${fmt(it.price)}</span></div>
+        <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditMenuItem('${it.id}')">✏️</button>
+        <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteMenuItem('${restId}','${it.id}')">Remove</button>
+      </div>
+      ${S._editMenuItemFor===it.id?editMenuItemForm(restId,it):''}`).join('') || '<div class="meta" style="color:var(--muted);font-size:12px;">No items yet.</div>'}
+    <div style="margin-top:14px;">
+      <div class="field"><label>Item name</label><input id="newMName" placeholder="e.g. Set Dosa"></div>
+      <div class="field"><label>Price (₹)</label><input id="newMPrice" type="number" placeholder="90"></div>
+      <div class="field"><label>Type <span style="font-weight:400;color:var(--muted);">(optional — defaults to Veg)</span></label>
+        <div class="veg-filter-row" style="margin:0;">
+          <div class="veg-chip veg-opt active" id="newMVegTrue" onclick="selectMenuItemVeg(true)">🟢 Veg</div>
+          <div class="veg-chip nonveg-opt" id="newMVegFalse" onclick="selectMenuItemVeg(false)">🔴 Non-Veg</div>
+        </div>
+        <input type="hidden" id="newMVeg" value="true">
+      </div>
+      <div class="field"><label>Emoji icon (used if no photo is added)</label><input id="newMEmoji" placeholder="🍽️" maxlength="2"></div>
+      <div class="field">
+        <label>Food image — paste a URL, or upload from device</label>
+        <input id="newMImageUrl" placeholder="https://... (optional)" oninput="document.getElementById('newMImgPreview').src=this.value||'${dummyImage('🍽️','#2E6B4F',80,80)}'">
+        <div class="img-upload-row">
+          <img id="newMImgPreview" class="img-preview" src="${dummyImage('🍽️','#2E6B4F',80,80)}">
+          <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="newMImageFile" onchange="handleImageUpload(this,'newMImgPreview')"></label>
+        </div>
+      </div>
+      <button class="btn btn-outline" onclick="submitAddMenuItem('${restId}')">Add item to menu</button>
+    </div>
+  </div>`;
+}
+function selectMenuItemVeg(isVeg){
+  document.getElementById('newMVegTrue').classList.toggle('active', isVeg);
+  document.getElementById('newMVegFalse').classList.toggle('active', !isVeg);
+  document.getElementById('newMVeg').value = isVeg ? 'true' : 'false';
+}
+function submitAddMenuItem(restId){
+  const n = document.getElementById('newMName').value.trim();
+  const p = document.getElementById('newMPrice').value;
+  if(!n||!p){ showToast('Enter item name and price.'); return; }
+  const fileInput = document.getElementById('newMImageFile');
+  const image = (fileInput && fileInput.dataset.uploaded) || document.getElementById('newMImageUrl').value.trim() || null;
+  addMenuItem(restId, n, p, document.getElementById('newMVeg').value==='true', document.getElementById('newMEmoji').value.trim(), image);
+}
+function openEditMenuItem(itemId){ S._editMenuItemFor = (S._editMenuItemFor===itemId)?null:itemId; render(); }
+function editMenuItemForm(restId, it){
+  return `
+  <div class="card" style="margin:6px 0 14px;">
+    <div class="section-title" style="margin-top:0;">Edit ${it.name}</div>
+    <div class="field"><label>Item name</label><input id="editMName_${it.id}" value="${it.name}"></div>
+    <div class="field"><label>Price (₹)</label><input id="editMPrice_${it.id}" type="number" value="${it.price}"></div>
+    <div class="field"><label>Type</label>
+      <div class="veg-filter-row" style="margin:0;">
+        <div class="veg-chip veg-opt ${it.veg?'active':''}" id="editMVegTrue_${it.id}" onclick="selectEditMenuItemVeg('${it.id}',true)">🟢 Veg</div>
+        <div class="veg-chip nonveg-opt ${!it.veg?'active':''}" id="editMVegFalse_${it.id}" onclick="selectEditMenuItemVeg('${it.id}',false)">🔴 Non-Veg</div>
+      </div>
+      <input type="hidden" id="editMVeg_${it.id}" value="${it.veg}">
+    </div>
+    <div class="field"><label>Emoji icon</label><input id="editMEmoji_${it.id}" value="${it.emoji}" maxlength="2"></div>
+    <div class="field"><label>Image URL</label><input id="editMImage_${it.id}" value="${it.image||''}"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="submitEditMenuItem('${restId}','${it.id}')">Save changes</button>
+      <button class="btn btn-ghost" onclick="openEditMenuItem('${it.id}')">Cancel</button>
+    </div>
+  </div>`;
+}
+function selectEditMenuItemVeg(itemId, isVeg){
+  document.getElementById(`editMVegTrue_${itemId}`).classList.toggle('active', isVeg);
+  document.getElementById(`editMVegFalse_${itemId}`).classList.toggle('active', !isVeg);
+  document.getElementById(`editMVeg_${itemId}`).value = isVeg ? 'true' : 'false';
+}
+function submitEditMenuItem(restId, itemId){
+  updateMenuItem(restId, itemId, {
+    name: document.getElementById(`editMName_${itemId}`).value.trim(),
+    price: Number(document.getElementById(`editMPrice_${itemId}`).value),
+    veg: document.getElementById(`editMVeg_${itemId}`).value==='true',
+    emoji: document.getElementById(`editMEmoji_${itemId}`).value.trim(),
+    image: document.getElementById(`editMImage_${itemId}`).value.trim() || null,
+  });
+}
+
+function adminRiders(){
+  return `
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">Add a rider</div>
+    <div class="field"><label>Name</label><input id="newRiderName" placeholder="e.g. Naveen K."></div>
+    <div class="field"><label>Phone</label><input id="newRiderPhone" placeholder="98xxxxxxxx"></div>
+    <div class="field"><label>Login password (tell this to the rider)</label><input id="newRiderPassword" type="password" placeholder="Set a password for this rider"></div>
+    <div class="field"><label>Commission per delivered order (%)</label><input id="newRiderPay" type="number" placeholder="10" value="10"></div>
+    <button class="btn btn-primary" onclick="submitAddRider()">Add rider</button>
+  </div>
+  <div class="section-title">All riders — edit details or reset a password below</div>
+  ${DB.riders.map(r=>{
+    const active = DB.orders.filter(o=>o.riderId===r.id && o.status!=='Delivered').length;
+    const delivered = DB.orders.filter(o=>o.riderId===r.id && o.status==='Delivered').length;
+    return `<div class="card" style="padding:12px 14px;margin-bottom:10px;">
+      <div class="list-row" style="border-bottom:none;padding-bottom:8px;">
+        <div class="swatch" style="background:#E6EEFB;">🛵</div>
+        <div class="li"><strong>${r.name}</strong><span>${active} active · ${delivered} delivered</span></div>
+        <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteRider('${r.id}')">Remove</button>
+      </div>
+      <div class="field"><label>Name</label><input id="rName_${r.id}" value="${r.name}"></div>
+      <div class="field"><label>Phone</label><input id="rPhone_${r.id}" value="${r.phone}"></div>
+      <div class="field"><label>Commission per delivered order (%)</label><input type="number" id="rPay_${r.id}" value="${r.commissionPercent||0}"></div>
+      <div class="field"><label>Reset password <span style="font-weight:400;color:var(--muted);">(leave blank to keep current)</span></label><input id="rPassword_${r.id}" type="password" placeholder="New password"></div>
+      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="submitEditRider('${r.id}')">Save changes</button>
+    </div>`;
+  }).join('')}`;
+}
+function submitAddRider(){
+  const n = document.getElementById('newRiderName').value.trim();
+  const p = document.getElementById('newRiderPhone').value.trim();
+  const pw = document.getElementById('newRiderPassword').value;
+  if(!n||!p){ showToast('Enter rider name and phone.'); return; }
+  if(!pw||pw.length<4){ showToast('Set a password (at least 4 characters) for this rider.'); return; }
+  addRider(n,p,document.getElementById('newRiderPay').value,pw);
+}
+function submitEditRider(id){
+  updateRider(id, {
+    name: document.getElementById(`rName_${id}`).value.trim(),
+    phone: document.getElementById(`rPhone_${id}`).value.trim(),
+    commissionPercent: Number(document.getElementById(`rPay_${id}`).value)||0,
+    password: document.getElementById(`rPassword_${id}`).value || undefined,
+  });
+}
+
+function adminOffers(){
+  const restOptions = DB.restaurants.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  const bgSwatches = ['#C1442E','#2E6B4F','#F2A93B','#2453A8','#8E5FA3','#1C1B19'];
+  return `
+  <div class="card">
+    <div class="section-title" style="margin-top:0;">Add an offer</div>
+    <div class="field"><label>Title</label><input id="newOfferTitle" placeholder="e.g. FLAT 40% OFF"></div>
+    <div class="field"><label>Subtitle</label><input id="newOfferSub" placeholder="e.g. Up to ₹120 · this weekend only"></div>
+    <div class="field"><label>Emoji</label><input id="newOfferEmoji" placeholder="🔥" maxlength="2"></div>
+    <div class="field">
+      <label>Banner color</label>
+      <input type="hidden" id="newOfferBg" value="${bgSwatches[0]}">
+      <div style="display:flex;gap:8px;">
+        ${bgSwatches.map((c,i)=>`<div onclick="document.getElementById('newOfferBg').value='${c}'; document.querySelectorAll('.swatch-pick').forEach(el=>el.style.outline='none'); this.style.outline='3px solid var(--marigold-dark)';" class="swatch-pick" style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;${i===0?'outline:3px solid var(--marigold-dark);':''}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="field">
+      <label>Link to restaurant — tapping the offer takes the customer here</label>
+      <select id="newOfferRest"><option value="">— No restaurant (informational only) —</option>${restOptions}</select>
+    </div>
+    <button class="btn btn-primary" onclick="submitAddOffer()">Add offer</button>
+  </div>
+  <div class="section-title">Live offers — shown on the customer home screen</div>
+  ${DB.offers.length===0?`<div class="empty"><div class="big">🎁</div>No offers yet. Add one above.</div>`:
+  DB.offers.map(o=>{
+    const rest = o.restaurantId ? restaurantById(o.restaurantId) : null;
+    return `<div class="list-row">
+      <div class="swatch" style="background:${o.bg};display:flex;align-items:center;justify-content:center;font-size:16px;">${o.emoji}</div>
+      <div class="li"><strong>${o.title}</strong><span>${o.sub} ${rest?`· links to ${rest.name}`:'· no restaurant linked'}</span></div>
+      <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditOffer('${o.id}')">✏️</button>
+      <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteOffer('${o.id}')">Remove</button>
+    </div>
+    ${S._editOfferFor===o.id?editOfferForm(o,restOptions):''}`;
+  }).join('')}`;
+}
+function openEditOffer(id){ S._editOfferFor = (S._editOfferFor===id)?null:id; render(); }
+function editOfferForm(o,restOptions){
+  const options = DB.restaurants.map(r=>`<option value="${r.id}" ${o.restaurantId===r.id?'selected':''}>${r.name}</option>`).join('');
+  return `
+  <div class="card" style="margin:6px 0 14px;">
+    <div class="section-title" style="margin-top:0;">Edit offer</div>
+    <div class="field"><label>Title</label><input id="editOTitle_${o.id}" value="${o.title}"></div>
+    <div class="field"><label>Subtitle</label><input id="editOSub_${o.id}" value="${o.sub}"></div>
+    <div class="field"><label>Emoji</label><input id="editOEmoji_${o.id}" value="${o.emoji}" maxlength="2"></div>
+    <div class="field"><label>Link to restaurant</label>
+      <select id="editORest_${o.id}"><option value="" ${!o.restaurantId?'selected':''}>— No restaurant (informational only) —</option>${options}</select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="width:auto;padding:9px 16px;" onclick="submitEditOffer('${o.id}')">Save changes</button>
+      <button class="btn btn-ghost" onclick="openEditOffer('${o.id}')">Cancel</button>
+    </div>
+  </div>`;
+}
+function submitEditOffer(id){
+  updateOffer(id, {
+    title: document.getElementById(`editOTitle_${id}`).value.trim(),
+    sub: document.getElementById(`editOSub_${id}`).value.trim(),
+    emoji: document.getElementById(`editOEmoji_${id}`).value.trim(),
+    restaurantId: document.getElementById(`editORest_${id}`).value || null,
+  });
+}
+function submitAddOffer(){
+  const title = document.getElementById('newOfferTitle').value.trim();
+  if(!title){ showToast('Enter an offer title.'); return; }
+  addOffer(title,
+    document.getElementById('newOfferSub').value.trim()||'Limited time offer',
+    document.getElementById('newOfferEmoji').value.trim(),
+    document.getElementById('newOfferBg').value,
+    document.getElementById('newOfferRest').value||null);
+}
+
+function adminOrders(){
+  if(DB.orders.length===0) return `<div class="empty"><div class="big">📦</div>No orders placed yet.</div>`;
+  return `
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmClearAllOrders()">Clear all orders</button>
+  </div>
+  ` + DB.orders.map(o=>{
+    const r = restaurantById(o.restaurantId);
+    const rider = o.riderId?riderById(o.riderId):null;
+    const isPaymentPhase = !STATIONS.includes(o.status);
+    return `
+    <div class="order-card">
+      <div class="order-top">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+          <div class="order-id">#${o.id} · ${o.customerName} · ${o.createdAt}</div>
+        </div>
+        <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
+      </div>
+      ${isPaymentPhase?paymentStatusBanner(o, true):routeTracker(o.status)}
+      ${orderItemThumbs(o)}
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
+        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        ${rider?` · Rider: ${rider.name}`:' · Unassigned'}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <span class="badge" style="background:var(--green-light);color:var(--green);">📲 ${o.paymentMethod}</span>
+        <span class="badge" style="background:${o.locShared?'#E6EEFB':'var(--paper)'};color:${o.locShared?'#2453A8':'var(--muted)'};">${o.locShared?'📍 Live GPS':'📍 '+o.address}</span>
+      </div>
+      ${(o.status==='AwaitingPayment'||o.status==='PaymentClaimed')?`
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-green" style="padding:9px 14px;" onclick="confirmPaymentReceived('${o.id}')">✅ Confirm payment received</button>
+        <button class="btn btn-outline" style="padding:9px 14px;border-color:var(--chili);color:var(--chili);" onclick="rejectPayment('${o.id}')">Not received</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+/* ============ SHARED CHROME ============ */
+function backbar(title, backScreen){
+  return `
+  <div class="stripes"></div>
+  <div class="backbar">
+    <div class="back" onclick="${backScreen?`go('${backScreen}')`:'logout()'}">←</div>
+    <h2>${title}</h2>
+  </div>`;
+}
+function topbarLogged(){
+  const unread = unreadNotifCount();
+  const mine = mySessionNotifications();
+  const showLogout = S.role==='rider' || S.role==='admin';
+  return `
+  <div class="topbar" style="position:relative;">
+    <div class="brand" onclick="go('customer-restaurants')"><div class="mark">🛵</div><div><div class="brand-name" style="font-size:16px;">GUBBI FAST</div><div class="brand-tag">ನಮ್ಮ ಊಟ · ನಿಮ್ಮ ಬಾಗಿಲಿಗೆ</div></div></div>
+    <div class="topbar-tagline">Gubbi gets fed <span class="accent">fast.</span></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="chip" style="position:relative;" onclick="toggleNotifPanel()">🔔${unread>0?`<span class="notif-dot">${unread}</span>`:''}</div>
+      ${showLogout?`<div class="chip" onclick="logout()">🚪 Logout</div>`:''}
+    </div>
+    ${S.notifOpen?`
+    <div class="notif-panel">
+      <div class="notif-panel-title">Notifications</div>
+      ${mine.length===0?`<div class="notif-empty">No notifications yet.</div>`:
+        mine.slice(0,12).map(n=>`
+        <div class="notif-item">
+          <span class="notif-icon">${n.icon}</span>
+          <div class="notif-body"><div>${n.message}</div><div class="notif-time">${n.time}</div></div>
+        </div>`).join('')}
+    </div>`:''}
+  </div>
+  <div class="stripes"></div>`;
+}
+
+/* ============ MAIN RENDER ============ */
+const MAIN_TABS = ['customer-restaurants','customer-offers','customer-notifications','customer-account'];
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  switch(S.screen){
+    case 'customer-login': html = screenCustomerLogin(); break;
+    case 'customer-restaurants': html = screenCustomerRestaurants(); break;
+    case 'customer-offers': html = screenCustomerOffers(); break;
+    case 'customer-notifications': html = screenCustomerNotifications(); break;
+    case 'customer-account': html = screenCustomerAccount(); break;
+    case 'customer-menu': html = screenCustomerMenu(); break;
+    case 'customer-cart': html = screenCustomerCart(); break;
+    case 'customer-checkout-login': html = screenCustomerCheckoutLogin(); break;
+    case 'customer-payment': html = screenCustomerPayment(); break;
+    case 'customer-orders': html = screenCustomerOrders(); break;
+    case 'rider-login': html = screenRiderLogin(); break;
+    case 'rider-dashboard': html = screenRiderDashboard(); break;
+    case 'admin-login': html = screenAdminLogin(); break;
+    case 'admin-dashboard': html = screenAdminDashboard(); break;
+    default: html = screenCustomerRestaurants();
+  }
+  if(MAIN_TABS.includes(S.screen)) html += bottomNav(S.screen);
+  if(S.screen.startsWith('customer-') && S.screen!=='customer-checkout-login') html += floatingSocial();
+  if(S.toast){
+    html += `<div class="toast" id="toast-el">${S.toast}</div>`;
+  }
+  app.innerHTML = html;
+  mountMaps();
+}
+/* ============ STARTUP ============ */
+/* Close the notification panel when tapping anywhere outside it. */
+document.addEventListener('click', function(e){
+  if(!S.notifOpen) return;
+  if(e.target.closest('.notif-panel') || e.target.closest('.chip')) return;
+  S.notifOpen = false;
+  render();
+});
+
+async function init(){
+  render(); // show something immediately
+  await loadAll(); // pull shared restaurants/orders/notifications from the backend
+  render();
+  setInterval(pollShared, 8000); // pick up orders/catalog changes made in other tabs/devices — kept fairly infrequent to stay well within Firestore's free daily read quota
+}
+init();
+</script>
+</body>
+</html>
