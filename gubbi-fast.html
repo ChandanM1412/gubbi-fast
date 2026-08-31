@@ -59,7 +59,7 @@
     font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px;color:var(--cream);
   }
   .topbar-tagline .accent{color:var(--marigold);}
-  @media (max-width:420px){ .topbar-tagline{display:none;} }
+  @media (max-width:699px){ .topbar-tagline{display:none;} }
   .chip{
     font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 10px;border-radius:20px;
     background:rgba(255,255,255,0.1);color:var(--cream);border:1px solid rgba(255,255,255,0.18);
@@ -1537,7 +1537,7 @@ function screenCustomerMenu(){
         ${itemImgTag(it, "m-img")}
         <div class="m-info">
           <h4>${it.name}</h4>
-          <div class="${it.veg?'veg':'nonveg'}">${it.veg?'● VEG':'● NON-VEG'}</div>
+          ${isMixed?`<div class="${it.veg?'veg':'nonveg'}">${it.veg?'● VEG':'● NON-VEG'}</div>`:''}
           <div class="m-price">${fmt(it.price)}</div>
         </div>
         ${S.cart[it.id] ? `
