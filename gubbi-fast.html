@@ -726,27 +726,36 @@ setInterval(()=>{
     showToast(unseen[0].icon+' '+unseen[0].message);
   }
 }, 1600);
-/* Two-tone "ding-dong" chime generated with the Web Audio API — no external sound file needed.
-   Browsers suspend audio until a user gesture happens on the page; by the time a real
-   notification fires the user has almost always already tapped something, so this just
-   resumes quietly. */
+/* Big four-note "ding-ding-dong-dong" alert generated with the Web Audio API — no external sound
+   file needed. Louder peak gain + a doubled harmonic on each note makes it read as a proper
+   attention-grabbing alert instead of a quiet chime. Browsers suspend audio until a user gesture
+   happens on the page; by the time a real notification fires the user has almost always already
+   tapped something, so this just resumes quietly. */
 let _audioCtx = null;
 function playNotifSound(){
   try{
     _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if(_audioCtx.state==='suspended') _audioCtx.resume();
     const now = _audioCtx.currentTime;
-    const notes = [{freq:1046.5, start:0, dur:0.22}, {freq:784.0, start:0.16, dur:0.4}]; // C6 then G5
+    const notes = [
+      {freq:1318.5, start:0,    dur:0.18}, // E6
+      {freq:1318.5, start:0.16, dur:0.18}, // E6
+      {freq:1046.5, start:0.34, dur:0.30}, // C6
+      {freq:784.0,  start:0.60, dur:0.55}, // G5
+    ];
     notes.forEach(({freq, start, dur})=>{
-      const osc = _audioCtx.createOscillator();
-      const gain = _audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now+start);
-      gain.gain.setValueAtTime(0.001, now+start);
-      gain.gain.exponentialRampToValueAtTime(0.2, now+start+0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now+start+dur);
-      osc.connect(gain); gain.connect(_audioCtx.destination);
-      osc.start(now+start); osc.stop(now+start+dur+0.05);
+      [1, 2].forEach(harmonic=>{ // fundamental + octave-up layer for a fuller, louder tone
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq*harmonic, now+start);
+        const peak = harmonic===1 ? 0.55 : 0.2;
+        gain.gain.setValueAtTime(0.001, now+start);
+        gain.gain.exponentialRampToValueAtTime(peak, now+start+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now+start+dur);
+        osc.connect(gain); gain.connect(_audioCtx.destination);
+        osc.start(now+start); osc.stop(now+start+dur+0.05);
+      });
     });
   }catch(e){ /* audio blocked/unavailable — notification still shows visually */ }
 }
