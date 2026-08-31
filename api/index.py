@@ -35,6 +35,60 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Gubbi@Admin2026")
 TOKEN_TTL_SECONDS = 12 * 60 * 60
 FALLBACK_LAT, FALLBACK_LNG = 13.3086, 76.9366  # central Gubbi (Tumkur dist.), used when a customer denies GPS
 
+# Seed data + default settings — this is the ONLY copy of it; the frontend ships empty and pulls
+# everything from GET /api/catalog / GET /api/live below, so nothing here is visible in the
+# browser's page source or dev tools.
+DEFAULT_CATALOG = {
+    "restaurants": [
+        {"id": "r1", "name": "Gubbi Tiffin House", "cuisine": "South Indian · Tiffins", "area": "B.H. Road, Gubbi", "eta": "25-30 min", "rating": 4.3, "color": "#F2A93B", "emoji": "🍛", "lat": 13.3096, "lng": 76.9376, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg"},
+        {"id": "r2", "name": "Namma Biryani Corner", "cuisine": "Biryani · Kebabs", "area": "Bus Stand Road, Gubbi", "eta": "30-35 min", "rating": 4.1, "color": "#C1442E", "emoji": "🍚", "lat": 13.3070, "lng": 76.9350, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg"},
+        {"id": "r3", "name": "Malnad Meals", "cuisine": "Karnataka Thali", "area": "Tumkur Road, Gubbi", "eta": "20-25 min", "rating": 4.5, "color": "#2E6B4F", "emoji": "🍲", "lat": 13.3110, "lng": 76.9390, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg"},
+        {"id": "r4", "name": "Silk City Sweets & Snacks", "cuisine": "Sweets · Chaat", "area": "APMC Yard, Gubbi", "eta": "15-20 min", "rating": 4.0, "color": "#8E5FA3", "emoji": "🍬", "lat": 13.3060, "lng": 76.9410, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg"},
+    ],
+    "menu": {
+        "r1": [
+            {"id": "m1", "name": "Masala Dosa", "price": 80, "veg": True, "emoji": "🥞", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg"},
+            {"id": "m2", "name": "Idli Vada Combo", "price": 70, "veg": True, "emoji": "🍥", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Idli_Sambar.JPG/640px-Idli_Sambar.JPG"},
+            {"id": "m3", "name": "Filter Coffee", "price": 30, "veg": True, "emoji": "☕", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Filter_kaapi.JPG/640px-Filter_kaapi.JPG"},
+            {"id": "m4", "name": "Rava Kesari Bath", "price": 60, "veg": True, "emoji": "🍮", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg"},
+        ],
+        "r2": [
+            {"id": "m5", "name": "Chicken Dum Biryani", "price": 220, "veg": False, "emoji": "🍗", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg"},
+            {"id": "m6", "name": "Mutton Biryani", "price": 280, "veg": False, "emoji": "🍖", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg"},
+            {"id": "m7", "name": "Veg Biryani", "price": 170, "veg": True, "emoji": "🍛", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Afghan_Palo.jpg/640px-Afghan_Palo.jpg"},
+            {"id": "m8", "name": "Chicken Seekh Kebab", "price": 190, "veg": False, "emoji": "🍢", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Pakistani_Food_Beef_Kabobs.jpg/640px-Pakistani_Food_Beef_Kabobs.jpg"},
+        ],
+        "r3": [
+            {"id": "m9", "name": "Karnataka Thali", "price": 150, "veg": True, "emoji": "🍽️", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg"},
+            {"id": "m10", "name": "Bisi Bele Bath", "price": 110, "veg": True, "emoji": "🍚", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Bisi_Bele_Bath_%28Bisibelebath%29.JPG/640px-Bisi_Bele_Bath_%28Bisibelebath%29.JPG"},
+            {"id": "m11", "name": "Ragi Mudde + Saaru", "price": 90, "veg": True, "emoji": "🍚", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/RAGI_MUDDE.JPG/640px-RAGI_MUDDE.JPG"},
+        ],
+        "r4": [
+            {"id": "m12", "name": "Mysore Pak", "price": 120, "veg": True, "emoji": "🍬", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Mysore_pak.jpg/640px-Mysore_pak.jpg"},
+            {"id": "m13", "name": "Pani Puri Plate", "price": 50, "veg": True, "emoji": "🥟", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Pani_Puri1.JPG/640px-Pani_Puri1.JPG"},
+            {"id": "m14", "name": "Dharwad Peda (250g)", "price": 140, "veg": True, "emoji": "🍡", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg/640px-Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg"},
+        ],
+    },
+    "riders": [
+        {"id": "rd1", "name": "Ravi Kumar", "phone": "98450 11122", "commissionPercent": 10},
+        {"id": "rd2", "name": "Suresh Gowda", "phone": "99001 33445", "commissionPercent": 8},
+        {"id": "rd3", "name": "Manjunath B.", "phone": "97400 55667", "commissionPercent": 10},
+    ],
+    "offers": [
+        {"id": "o1", "emoji": "🔥", "title": "FLAT 50% OFF", "sub": "Up to ₹100 at Gubbi Tiffin House", "bg": "#C1442E", "restaurantId": "r1"},
+        {"id": "o2", "emoji": "🍗", "title": "Biryani Bonanza", "sub": "Flat ₹75 off at Namma Biryani Corner", "bg": "#2453A8", "restaurantId": "r2"},
+        {"id": "o3", "emoji": "🍬", "title": "Sweet Treat Deal", "sub": "Buy 1 Get 1 at Silk City Sweets", "bg": "#8E5FA3", "restaurantId": "r4"},
+    ],
+    "settings": {
+        "upiId": "yourname@upi",
+        "upiName": "Gubbi Fast",
+        "adminPhone": "9123242102",
+        "instagramUrl": "https://www.instagram.com/gubbi_fast/",
+        "whatsappUrl": "https://api.whatsapp.com/message/X5VYGUB7I3I4P1?autoload=1&app_absent=0",
+    },
+}
+DEFAULT_RIDER_PASSWORDS = {"rd1": "rider123", "rd2": "rider123", "rd3": "rider123"}
+
 _db = None
 
 
@@ -116,19 +170,51 @@ def _run_order_mutation(order_id, mutate_fn):
     return jsonify(ok=True, order=order)
 
 
+def _seed_catalog_if_missing(catalog_ref):
+    data = json.loads(json.dumps(DEFAULT_CATALOG))  # deep copy, keeps DEFAULT_CATALOG pristine
+    data["catalogRev"] = 1
+    catalog_ref.set(data)
+    creds_ref = get_db().collection("gubbiFast").document("riderCredentials")
+    if not creds_ref.get().exists:
+        creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RIDER_PASSWORDS.items()})
+    return data
+
+
 def _get_catalog():
-    snap = get_db().collection("gubbiFast").document("catalog").get()
-    return snap.to_dict() if snap.exists else {"restaurants": [], "menu": {}, "riders": [], "offers": [], "settings": {}}
+    catalog_ref = get_db().collection("gubbiFast").document("catalog")
+    snap = catalog_ref.get()
+    if snap.exists:
+        return snap.to_dict()
+    return _seed_catalog_if_missing(catalog_ref)
 
 
 def _mutate_catalog(mutate_fn):
     catalog_ref = get_db().collection("gubbiFast").document("catalog")
     snap = catalog_ref.get()
-    data = snap.to_dict() if snap.exists else {"restaurants": [], "menu": {}, "riders": [], "offers": [], "settings": {}}
+    data = snap.to_dict() if snap.exists else _seed_catalog_if_missing(catalog_ref)
     mutate_fn(data)
     data["catalogRev"] = (data.get("catalogRev", 0) or 0) + 1
     catalog_ref.set(data)
     return data
+
+
+# ============ PUBLIC READS (frontend ships with no data at all — everything above is pulled
+# from here, so no restaurant/menu/pricing/settings data sits in the browser's page source) ============
+
+@app.get("/api/catalog")
+def get_catalog_public():
+    return jsonify(_get_catalog())
+
+
+@app.get("/api/live")
+def get_live_public():
+    live_ref = get_db().collection("gubbiFast").document("live")
+    snap = live_ref.get()
+    if snap.exists:
+        return jsonify(snap.to_dict())
+    data = {"orders": [], "notifications": [], "orderSeq": 1001, "liveRev": 0}
+    live_ref.set(data)
+    return jsonify(data)
 
 
 # ============ ADMIN AUTH ============

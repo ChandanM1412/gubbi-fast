@@ -328,81 +328,17 @@
 <div id="app"></div>
 
 <script>
-/* ============ CONFIGURATION — edit these two blocks for your own deployment ============
-   1) firebase: OPTIONAL. Fill this in with a free Firebase project's web config to sync orders
-      and menu data across every customer/rider/admin device in real time (see README.md next to
-      this file for the 2-minute setup). Leave apiKey empty to run in single-device demo mode,
-      which uses the browser's own localStorage instead and only syncs between tabs on one device.
-   2) upi: the UPI ID customers pay into at checkout. Admins can also change this later from the
-      Admin > Settings tab without touching code — whatever they set there takes priority. */
-const CONFIG = {
-  firebase: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
-  },
-  upi: {
-    payeeVpa: "yourname@upi",
-    payeeName: "Gubbi Fast",
-    adminPhone: "9123242102"
-  },
-  social: {
-    instagramUrl: "https://www.instagram.com/gubbi_fast/",
-    whatsappUrl: "https://api.whatsapp.com/message/X5VYGUB7I3I4P1?autoload=1&app_absent=0"
-  }
-};
-
-/* ============ IN-MEMORY DATABASE (simulates the backend for this demo) ============ */
+/* ============ IN-MEMORY DATABASE (filled in from the backend at startup — see loadAll() below;
+   nothing is hardcoded here so no restaurant/menu/pricing/settings data sits in the page source) */
 const DB = {
-  restaurants: [
-    {id:'r1', name:'Gubbi Tiffin House', cuisine:'South Indian · Tiffins', area:'B.H. Road, Gubbi', eta:'25-30 min', rating:4.3, color:'#F2A93B', emoji:'🍛', lat:13.3096, lng:76.9376, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg'},
-    {id:'r2', name:'Namma Biryani Corner', cuisine:'Biryani · Kebabs', area:'Bus Stand Road, Gubbi', eta:'30-35 min', rating:4.1, color:'#C1442E', emoji:'🍚', lat:13.3070, lng:76.9350, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
-    {id:'r3', name:'Malnad Meals', cuisine:'Karnataka Thali', area:'Tumkur Road, Gubbi', eta:'20-25 min', rating:4.5, color:'#2E6B4F', emoji:'🍲', lat:13.3110, lng:76.9390, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg'},
-    {id:'r4', name:'Silk City Sweets & Snacks', cuisine:'Sweets · Chaat', area:'APMC Yard, Gubbi', eta:'15-20 min', rating:4.0, color:'#8E5FA3', emoji:'🍬', lat:13.3060, lng:76.9410, image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg'},
-  ],
-  // Real photos below are sourced from Wikimedia Commons/Wikipedia (freely licensed). Items
-  // without a verified real photo fall back to an auto-generated illustration — see itemImage().
-  menu: {
-    r1:[
-      {id:'m1',name:'Masala Dosa',price:80,veg:true,emoji:'🥞',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Masala_Dosa_2023.jpg/640px-Masala_Dosa_2023.jpg'},
-      {id:'m2',name:'Idli Vada Combo',price:70,veg:true,emoji:'🍥',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Idli_Sambar.JPG/640px-Idli_Sambar.JPG'},
-      {id:'m3',name:'Filter Coffee',price:30,veg:true,emoji:'☕',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Filter_kaapi.JPG/640px-Filter_kaapi.JPG'},
-      {id:'m4',name:'Rava Kesari Bath',price:60,veg:true,emoji:'🍮',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/KEsari_baat.jpg/640px-KEsari_baat.jpg'},
-    ],
-    r2:[
-      {id:'m5',name:'Chicken Dum Biryani',price:220,veg:false,emoji:'🍗',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
-      {id:'m6',name:'Mutton Biryani',price:280,veg:false,emoji:'🍖',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/%22Hyderabadi_Dum_Biryani%22.jpg/640px-%22Hyderabadi_Dum_Biryani%22.jpg'},
-      {id:'m7',name:'Veg Biryani',price:170,veg:true,emoji:'🍛',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Afghan_Palo.jpg/640px-Afghan_Palo.jpg'},
-      {id:'m8',name:'Chicken Seekh Kebab',price:190,veg:false,emoji:'🍢',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Pakistani_Food_Beef_Kabobs.jpg/640px-Pakistani_Food_Beef_Kabobs.jpg'},
-    ],
-    r3:[
-      {id:'m9',name:'Karnataka Thali',price:150,veg:true,emoji:'🍽️',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Vegetarian_Curry.jpeg/640px-Vegetarian_Curry.jpeg'},
-      {id:'m10',name:'Bisi Bele Bath',price:110,veg:true,emoji:'🍚',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Bisi_Bele_Bath_%28Bisibelebath%29.JPG/640px-Bisi_Bele_Bath_%28Bisibelebath%29.JPG'},
-      {id:'m11',name:'Ragi Mudde + Saaru',price:90,veg:true,emoji:'🍚',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/RAGI_MUDDE.JPG/640px-RAGI_MUDDE.JPG'},
-    ],
-    r4:[
-      {id:'m12',name:'Mysore Pak',price:120,veg:true,emoji:'🍬',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Mysore_pak.jpg/640px-Mysore_pak.jpg'},
-      {id:'m13',name:'Pani Puri Plate',price:50,veg:true,emoji:'🥟',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Pani_Puri1.JPG/640px-Pani_Puri1.JPG'},
-      {id:'m14',name:'Dharwad Peda (250g)',price:140,veg:true,emoji:'🍡',image:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg/640px-Indian_Sweet_Dessert_Peda_in_a_white_bone_china_plate.jpg'},
-    ],
-  },
-  riders: [
-    {id:'rd1', name:'Ravi Kumar', phone:'98450 11122', commissionPercent:10, password:'rider123'},
-    {id:'rd2', name:'Suresh Gowda', phone:'99001 33445', commissionPercent:8, password:'rider123'},
-    {id:'rd3', name:'Manjunath B.', phone:'97400 55667', commissionPercent:10, password:'rider123'},
-  ],
-  offers: [
-    {id:'o1', emoji:'🔥', title:'FLAT 50% OFF', sub:'Up to ₹100 at Gubbi Tiffin House', bg:'#C1442E', restaurantId:'r1'},
-    {id:'o2', emoji:'🍗', title:'Biryani Bonanza', sub:'Flat ₹75 off at Namma Biryani Corner', bg:'#2453A8', restaurantId:'r2'},
-    {id:'o3', emoji:'🍬', title:'Sweet Treat Deal', sub:'Buy 1 Get 1 at Silk City Sweets', bg:'#8E5FA3', restaurantId:'r4'},
-  ], // {id, emoji, title, sub, bg, restaurantId}
+  restaurants: [],
+  menu: {},
+  riders: [],
+  offers: [], // {id, emoji, title, sub, bg, restaurantId}
   orders: [], // {id, restaurantId, items, total, customerName, customerPhone, address, status, riderId, createdAt, paymentMethod, custLat, custLng, riderLat, riderLng}
   orderSeq: 1001,
   notifications: [], // {id, audience:'customer'|'rider'|'admin'|'all-riders', targetId, icon, message, time, read, _surfaced}
-  settings: { upiId: CONFIG.upi.payeeVpa, upiName: CONFIG.upi.payeeName, adminPhone: CONFIG.upi.adminPhone, instagramUrl: CONFIG.social.instagramUrl, whatsappUrl: CONFIG.social.whatsappUrl },
+  settings: { upiId: '', upiName: 'Gubbi Fast', adminPhone: '', instagramUrl: '', whatsappUrl: '' },
 };
 
 /* ---- dummy image generator (used whenever admin/customer hasn't supplied a real photo) ---- */
@@ -567,43 +503,24 @@ function stopRiderLocationSharing(){
   if(_riderWatchId!=null && navigator.geolocation){ navigator.geolocation.clearWatch(_riderWatchId); _riderWatchId=null; }
 }
 
-/* ============ BACKEND (works with zero setup, upgrades automatically if you add Firebase) ============
+/* ============ BACKEND SYNC ============
    Orders/notifications/catalog need to be shared across every tab, device, and role — e.g. an
    order placed by a customer must show up instantly for admin and every rider on their own
-   devices. A static site like this has no server of its own, so:
-     - If CONFIG.firebase has real values, this syncs through Firestore in real time across ANY
-       device, anywhere. See README.md for the free 2-minute setup.
-     - If CONFIG.firebase.apiKey is empty (the default), this falls back to the browser's own
-       localStorage, which only syncs between tabs on the SAME browser/device — the site still
-       works and is fully deployable as-is, just without cross-device sync.
+   devices. This is done entirely through the Python backend (GET /api/catalog, GET /api/live —
+   see api/index.py), which also owns all the seed/demo data — nothing is hardcoded here.
+     - If the backend is deployed and reachable, everything syncs live across ANY device.
+     - If no backend is reachable at all (e.g. this file opened locally without deploying api/),
+       this falls back to the browser's own localStorage, which only syncs between tabs on the
+       SAME browser/device and starts empty until an admin adds restaurants/riders/offers.
    Adoption of incoming data is gated on a monotonically increasing revision number, never on a
    raw string diff — a poll that lands mid-write and reads a stale copy would otherwise revert
    fresher local state (e.g. an order just marked Delivered flipping back). */
-const USE_FIREBASE = !!(CONFIG.firebase && CONFIG.firebase.apiKey);
-let _fsDb = null;
 const _bc = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('gubbi-fast-sync') : null;
-async function initBackend(){
-  if(!USE_FIREBASE) return;
-  try{
-    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-    await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js');
-    firebase.initializeApp(CONFIG.firebase);
-    _fsDb = firebase.firestore();
-  }catch(e){ console.error('Firebase init failed — falling back to single-device local storage.', e); }
-}
 async function backendGet(key){
-  if(USE_FIREBASE && _fsDb){
-    const doc = await _fsDb.collection('gubbiFast').doc(key).get();
-    return doc.exists ? doc.data() : null;
-  }
   const raw = localStorage.getItem('gubbi_'+key);
   return raw ? JSON.parse(raw) : null;
 }
 async function backendSet(key, value){
-  if(USE_FIREBASE && _fsDb){
-    await _fsDb.collection('gubbiFast').doc(key).set(value);
-    return;
-  }
   localStorage.setItem('gubbi_'+key, JSON.stringify(value));
   if(_bc) _bc.postMessage({key}); // wake up other tabs on this device immediately
 }
@@ -643,28 +560,53 @@ async function saveLive(){
   }catch(e){ /* best-effort */ }
 }
 async function loadAll(){
-  await initBackend();
   try{
-    const cat = await backendGet('catalog');
-    if(cat){
-      DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
-      DB.offers = cat.offers || DB.offers;
-      DB.settings = cat.settings || DB.settings;
-      DB.catalogRev = cat.catalogRev || 0;
-    } else { await saveCatalog(); } // first run on this app: seed shared storage
-  }catch(e){ await saveCatalog(); }
-  try{
-    const live = await backendGet('live');
-    if(live){
-      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
-      DB.liveRev = live.liveRev || 0;
-    } else { await saveLive(); }
-  }catch(e){ await saveLive(); }
+    const [cat, live] = await Promise.all([
+      fetch('/api/catalog').then(r=> r.ok ? r.json() : Promise.reject()),
+      fetch('/api/live').then(r=> r.ok ? r.json() : Promise.reject()),
+    ]);
+    DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
+    DB.offers = cat.offers; DB.settings = cat.settings; DB.catalogRev = cat.catalogRev || 0;
+    DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+    DB.liveRev = live.liveRev || 0;
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local storage below */ }
+  const cat = await backendGet('catalog');
+  if(cat){
+    DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
+    DB.offers = cat.offers || DB.offers;
+    DB.settings = cat.settings || DB.settings;
+    DB.catalogRev = cat.catalogRev || 0;
+  }
+  const live = await backendGet('live');
+  if(live){
+    DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+    DB.liveRev = live.liveRev || 0;
+  }
 }
 /* Poll for changes made in OTHER tabs/devices — skipped while a form field is actively focused
    so an admin mid-typing never gets their in-progress text wiped out from under them. */
 async function pollShared(){
   if(formFieldFocused()) return;
+  try{
+    const [cat, live] = await Promise.all([
+      fetch('/api/catalog').then(r=> r.ok ? r.json() : Promise.reject()),
+      fetch('/api/live').then(r=> r.ok ? r.json() : Promise.reject()),
+    ]);
+    if((live.liveRev||0) > (DB.liveRev||0)){
+      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+      DB.liveRev = live.liveRev || 0;
+      render();
+    }
+    if((cat.catalogRev||0) > (DB.catalogRev||0)){
+      DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
+      DB.offers = cat.offers || DB.offers;
+      DB.settings = cat.settings || DB.settings;
+      DB.catalogRev = cat.catalogRev || 0;
+      render();
+    }
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local storage below */ }
   try{
     const live = await backendGet('live');
     if(live && (live.liveRev||0) > (DB.liveRev||0)){
@@ -1374,7 +1316,8 @@ function screenCustomerRestaurants(){
     </div>
 
     <h2 style="font-size:18px;margin:18px 0 12px;">Restaurants near ${S._pendingAddress||'you'}</h2>
-    ${list.length===0?`<div class="empty"><div class="big">🔍</div>No matches. Try a different search or filter.</div>`:
+    ${DB.restaurants.length===0?`<div class="empty"><div class="big">🍽️</div>No restaurants yet — check back soon.</div>`:
+    list.length===0?`<div class="empty"><div class="big">🔍</div>No matches. Try a different search or filter.</div>`:
     `<div class="restaurant-grid">${list.map(r=>{
       const disc = offerTagFor(r.id);
       const items = DB.menu[r.id] || [];
@@ -1492,7 +1435,7 @@ function screenCustomerAccount(){
   <div class="content">
     <div class="card" style="text-align:center;">
       <div style="font-size:34px;margin-bottom:6px;">👋</div>
-      <div style="font-weight:700;font-size:15px;">You're browsing as a guest</div>
+      <div style="font-weight:700;font-size:15px;">Helloo!!</div>
       <div class="meta" style="font-size:12px;color:var(--muted);margin:6px 0 14px;">Log in to track orders and get notified about your delivery.</div>
       <button class="btn btn-primary" onclick="go('customer-login')">Login / Sign up</button>
     </div>

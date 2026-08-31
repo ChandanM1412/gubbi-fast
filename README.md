@@ -1,11 +1,11 @@
 # Gubbi Fast — deployment guide
 
-The app is a static frontend (`gubbi-fast.html`) plus a Python backend (`api/index.py`) that
-owns every write that matters: placing an order, claiming/confirming/rejecting a payment,
-accepting/picking-up/delivering an order, rider location updates, admin login, and all catalog
-edits (restaurants, menu, riders, offers, settings). The frontend still *reads* Firestore
-directly for live updates (reads aren't a security concern) — only writes are locked to the
-backend, enforced by the Firestore rules in step 4 below.
+The app is a static frontend (`gubbi-fast.html`) plus a Python backend (`api/index.py`) that owns
+**everything**: all restaurant/menu/pricing/settings data, and every write that matters —
+placing an order, claiming/confirming/rejecting a payment, accepting/picking-up/delivering an
+order, rider location updates, admin login, and all catalog edits. `gubbi-fast.html` ships with
+no data and no config baked in at all — it only ever talks to the backend over `fetch()`, so
+there's nothing sensitive (or even just the demo menu) sitting in the page source/dev tools.
 
 ## 1. Deploy to Vercel
 
@@ -22,51 +22,49 @@ backend, enforced by the Firestore rules in step 4 below.
    | `FIREBASE_SERVICE_ACCOUNT_JSON` | full JSON of a Firebase service account key (step 2 below) |
 3. Redeploy after adding the variables (Vercel → Deployments → ⋯ → Redeploy).
 
-Admin login works even without step 2 (it doesn't touch Firestore). Placing orders, catalog
-edits, payment confirmation, etc. all need `FIREBASE_SERVICE_ACCOUNT_JSON` set — without it the
-site falls back to **single-device demo mode** (browser `localStorage`) for those.
+Admin login works even without step 2 (it doesn't touch Firestore). Everything else — the
+restaurant list, placing orders, catalog edits, payment confirmation — needs
+`FIREBASE_SERVICE_ACCOUNT_JSON` set; without it the site falls back to **single-device demo
+mode** (browser `localStorage`, starting empty until you add restaurants via Admin).
 
-## 2. Set up Firebase (required for the backend, and for cross-device sync)
+## 2. Set up Firebase (required for real data + cross-device sync)
 
 Free, no credit card needed:
 
 1. https://console.firebase.google.com → **Add project**.
 2. **Build → Firestore Database → Create database → Start in test mode**.
-3. **Project settings → General → Your apps → Web (`</>`)** → register an app → copy the
-   `firebaseConfig` object → paste it into `CONFIG.firebase` near the top of `gubbi-fast.html`.
-4. **Project settings → Service accounts → Generate new private key** → downloads a JSON file →
+3. **Project settings → Service accounts → Generate new private key** → downloads a JSON file →
    paste its *entire contents* as the `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable in
-   Vercel (step 1.2 above). This key lets the Python backend write to Firestore directly — it
-   must never be put in `gubbi-fast.html` or any other browser-visible file.
-5. **Firestore → Rules**, replace the default with:
+   Vercel (step 1.2 above). This key lets the Python backend read/write Firestore directly — it
+   must never be put in `gubbi-fast.html` or any other browser-visible file. (No web app / no
+   `firebaseConfig` needs registering — the frontend never talks to Firebase directly at all.)
+4. **Firestore → Rules**, replace the default with:
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
        match /gubbiFast/{doc} {
-         allow read: if doc != 'adminCredentials' && doc != 'riderCredentials';
-         allow write: if false; // all writes must go through the Python backend
+         allow read, write: if false; // everything goes through the Python backend
        }
      }
    }
    ```
-   `adminCredentials`/`riderCredentials` hold password hashes and are excluded from `read` too —
-   the frontend never needs them (only the backend reads them), so there's no reason a hash
-   should be fetchable by a browser at all, even though it's hashed.
-   The Admin SDK the backend uses **bypasses these rules by design**, so the backend keeps
-   working — this only blocks the browser's Firestore SDK from writing directly, which is what
-   actually closes the security gap (previously anyone could open DevTools and write fake order
-   data straight to Firestore).
+   The frontend no longer reads Firestore directly (it reads through `GET /api/catalog` /
+   `GET /api/live` instead), so this can now deny read *and* write for the browser's SDK
+   entirely — the Admin SDK the backend uses **bypasses these rules by design**, so the backend
+   keeps working regardless.
 
 If you skip this, the frontend falls back to the browser's `localStorage`, which only works
 for one device/browser — fine to try the app solo, not for real customers/riders/admin on
 separate phones. In that fallback mode every action is client-only again (no backend to enforce
-anything), same trade-off as before.
+anything), same trade-off as before, and the app starts with zero restaurants until you add some
+through Admin.
 
 ## 3. Set your UPI ID
 
-Either edit `CONFIG.upi` in `gubbi-fast.html` before deploying, or set it later from
-**Admin → Payments tab** (saved to the same backend as everything else).
+Defaults to a placeholder (`yourname@upi`) seeded by the backend on first run — change it from
+**Admin → Payments tab** once deployed (saved to the same backend as everything else), or edit
+`DEFAULT_CATALOG["settings"]` in `api/index.py` before the first deploy.
 
 ## 4. Rider logins now require a password
 
@@ -74,10 +72,10 @@ Admin sets a password when adding a rider (**Admin → Riders → Add a rider**)
 to log in. Passwords are hashed server-side and stored in a Firestore doc the browser never
 reads — the frontend only ever sees rider names/phone/commission.
 
-The 3 seeded demo riders (Ravi Kumar, Suresh Gowda, Manjunath B.) all use `rider123` — that only
-works in single-device demo mode (no backend). Once you deploy with Firebase configured, those
-seed riders won't have a server-side password yet (they were never added through Admin) — either
-add real riders through Admin, or ignore the seed riders in production.
+The 3 seeded demo riders (Ravi Kumar, Suresh Gowda, Manjunath B.) all use `rider123` — this works
+both in single-device demo mode and once deployed with Firebase configured (the backend seeds
+their password hashes the first time `GET /api/catalog` runs). Add real riders through Admin for
+production use.
 
 ## 5. Admin can now edit and delete everything
 
