@@ -836,9 +836,32 @@ function captureLocationThenPlaceOrder(){
 }
 
 function logout(){
+  localStorage.removeItem('gubbi_customer_session');
   S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null,
        currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
   render();
+}
+/* Persists just enough of the logged-in customer's session to survive a page refresh — without
+   this, S resets to a guest on every reload and the customer is asked to log in again. */
+function saveCustomerSession(){
+  if(S.role!=='customer') return;
+  try{
+    localStorage.setItem('gubbi_customer_session', JSON.stringify({
+      customerName:S.customerName, customerPhone:S.customerPhone, _pendingAddress:S._pendingAddress,
+      _pendingLat:S._pendingLat, _pendingLng:S._pendingLng, _locCaptured:S._locCaptured,
+    }));
+  }catch(e){ /* localStorage unavailable (private browsing etc.) — session just won't survive a refresh */ }
+}
+function restoreCustomerSession(){
+  try{
+    const raw = localStorage.getItem('gubbi_customer_session');
+    if(!raw) return;
+    const sess = JSON.parse(raw);
+    if(!sess || !sess.customerPhone) return;
+    S.role='customer'; S.customerName=sess.customerName; S.customerPhone=sess.customerPhone;
+    S._pendingAddress=sess._pendingAddress; S._pendingLat=sess._pendingLat; S._pendingLng=sess._pendingLng;
+    S._locCaptured=sess._locCaptured;
+  }catch(e){ /* corrupted session data — stay logged out */ }
 }
 
 /* ============ HELPERS ============ */
@@ -1657,6 +1680,7 @@ async function useCurrentLocationForAddress(){
       }
     }catch(e){ /* reverse geocoding unavailable — fall back to coordinates */ }
     S._pendingAddress = address;
+    saveCustomerSession();
     showToast('📍 Location added.');
     render();
   }, ()=>{
@@ -1737,6 +1761,7 @@ function confirmPickedLocation(){
   S._pendingAddress = S._locPickerAddress || S._pendingAddress;
   S._locCaptured = true;
   if(S._authDraft) S._authDraft.address = S._pendingAddress;
+  saveCustomerSession();
   showToast('📍 Location pinned.');
   go(S._locPickerReturnScreen || 'customer-cart');
 }
@@ -1746,6 +1771,7 @@ function confirmPickedLocation(){
 function confirmAndPlace(){
   const addrEl = document.getElementById('addrEdit');
   if(addrEl) S._pendingAddress = addrEl.value.trim() || S._pendingAddress;
+  saveCustomerSession();
   if(!isWithinOrderHours()){ showToast(`⏰ Orders are accepted only between ${ORDER_HOURS_LABEL}. Please try again during those hours.`); return; }
   if(!S.customerPhone){ go('customer-checkout-login'); return; }
   captureLocationThenPlaceOrder();
@@ -1843,6 +1869,7 @@ function applyCustomerProfile(c){
   S._pendingAddress = c.address || S._pendingAddress || 'Home';
   if(c.lat!=null && c.lng!=null){ S._pendingLat=c.lat; S._pendingLng=c.lng; S._locCaptured=true; }
   S._authDraft = null; S._authTab = 'login';
+  saveCustomerSession();
 }
 function afterCustomerAuth(context){
   if(context==='checkout'){ captureLocationThenPlaceOrder(); } else { go('customer-restaurants'); }
@@ -2662,6 +2689,7 @@ document.addEventListener('click', function(e){
 });
 
 async function init(){
+  restoreCustomerSession(); // keeps a logged-in customer logged in across page refreshes
   render(); // show something immediately
   await loadAll(); // pull shared restaurants/orders/notifications from the backend
   render();
