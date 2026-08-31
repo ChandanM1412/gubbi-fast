@@ -611,6 +611,18 @@ async function saveLive(){
     await backendSet('live', {orders:DB.orders, notifications:DB.notifications, orderSeq:DB.orderSeq, liveRev:DB.liveRev});
   }catch(e){ /* best-effort */ }
 }
+/* read/_surfaced are set locally only (toggleNotifPanel, the auto-toast interval) and never sent
+   to the backend, so a naive overwrite of DB.notifications from a server fetch would forget them
+   and make the same notification toast/ding again on every later poll. This carries those flags
+   forward by matching notification id. */
+function mergeNotifications(freshList){
+  const priorById = {};
+  (DB.notifications||[]).forEach(n=>{ priorById[n.id] = n; });
+  return (freshList||[]).map(n=>{
+    const prior = priorById[n.id];
+    return prior ? Object.assign({}, n, {read:prior.read, _surfaced:prior._surfaced}) : n;
+  });
+}
 async function loadAll(){
   try{
     const [cat, live] = await Promise.all([
@@ -619,7 +631,7 @@ async function loadAll(){
     ]);
     DB.restaurants = cat.restaurants; DB.menu = cat.menu; DB.riders = cat.riders;
     DB.offers = cat.offers; DB.settings = cat.settings; DB.catalogRev = cat.catalogRev || 0;
-    DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+    DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
     DB.liveRev = live.liveRev || 0;
     return;
   }catch(e){ /* no backend reachable — fall back to this device's local storage below */ }
@@ -632,7 +644,7 @@ async function loadAll(){
   }
   const live = await backendGet('live');
   if(live){
-    DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+    DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
     DB.liveRev = live.liveRev || 0;
   }
 }
@@ -646,7 +658,7 @@ async function pollShared(){
       fetch('/api/live').then(r=> r.ok ? r.json() : Promise.reject()),
     ]);
     if((live.liveRev||0) > (DB.liveRev||0)){
-      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+      DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
       DB.liveRev = live.liveRev || 0;
       render();
     }
@@ -662,7 +674,7 @@ async function pollShared(){
   try{
     const live = await backendGet('live');
     if(live && (live.liveRev||0) > (DB.liveRev||0)){
-      DB.orders = live.orders; DB.notifications = live.notifications; DB.orderSeq = live.orderSeq;
+      DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
       DB.liveRev = live.liveRev || 0;
       render();
     }
