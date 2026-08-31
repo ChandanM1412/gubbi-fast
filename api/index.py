@@ -80,9 +80,9 @@ DEFAULT_CATALOG = {
         {"id": "o3", "emoji": "🍬", "title": "Sweet Treat Deal", "sub": "Buy 1 Get 1 at Silk City Sweets", "bg": "#8E5FA3", "restaurantId": "r4"},
     ],
     "settings": {
-        "upiId": "yourname@upi",
+        "upiId": "7349656582@axl",
         "upiName": "Gubbi Fast",
-        "adminPhone": "9123242102",
+        "adminPhone": "7899863713",
         "instagramUrl": "https://www.instagram.com/gubbi_fast/",
         "whatsappUrl": "https://api.whatsapp.com/message/X5VYGUB7I3I4P1?autoload=1&app_absent=0",
     },
