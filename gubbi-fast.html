@@ -1371,7 +1371,7 @@ function screenCustomerRestaurants(){
     `<div class="restaurant-grid">${list.map(r=>{
       const disc = offerTagFor(r.id);
       const items = DB.menu[r.id] || [];
-      const isPureVeg = items.length>0 && items.every(it=>it.veg);
+      const isPureVeg = items.length>0 && items.every(it=>it.veg) && !/sweet|chaat|bakery/i.test(r.cuisine);
       return `
       <div class="shop-card" onclick="openRestaurant('${r.id}')">
         <div class="shop-img-wrap">
@@ -1514,7 +1514,7 @@ function screenCustomerMenu(){
   const hasVeg = allItems.some(it=>it.veg);
   const hasNonVeg = allItems.some(it=>!it.veg);
   const isMixed = hasVeg && hasNonVeg;
-  const isPureVeg = allItems.length>0 && !hasNonVeg;
+  const isPureVeg = allItems.length>0 && !hasNonVeg && !/sweet|chaat|bakery/i.test(r.cuisine);
   const vf = isMixed ? (S.vegFilter || 'all') : 'all';
   const items = allItems.filter(it => vf==='all' ? true : vf==='veg' ? it.veg : !it.veg);
   return `
