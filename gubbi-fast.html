@@ -118,8 +118,8 @@
     border-radius:12px;padding:12px 14px;margin-bottom:16px;
   }
   .search-bar input{border:none;outline:none;flex:1;font-size:14px;font-family:'IBM Plex Sans',sans-serif;background:transparent;}
-  .offers-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin:0 -20px 4px;padding-left:20px;padding-right:20px;}
-  .offer-card{
+  .offers-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px;margin:0 -20px 4px;padding-left:20px;padding-right:20px;}
+  .offer-card{scroll-snap-align:start;
     flex:0 0 auto;width:200px;border-radius:14px;padding:14px;color:#fff;position:relative;overflow:hidden;cursor:pointer;
     display:flex;align-items:center;gap:10px;
   }
@@ -390,6 +390,15 @@ function restaurantImgTag(r, cls){
 function itemImgTag(it, cls){
   const fallback = dummyImage(it.emoji, it.veg?'#2E6B4F':'#C1442E', 300, 300);
   return `<img class="${cls}" src="${itemImage(it)}" alt="${it.name}" loading="lazy" data-fallback="${fallback}" onerror="this.onerror=null;this.src=this.dataset.fallback;">`;
+}
+/* Offer banners use the linked restaurant's real photo instead of an emoji placeholder whenever
+   one is available — only falls back to the generated emoji tile for unlinked/photo-less offers. */
+function offerImage(o){
+  if(o.restaurantId){
+    const rest = restaurantById(o.restaurantId);
+    if(rest && rest.image) return rest.image;
+  }
+  return dummyImage(o.emoji, o.bg, 140, 140);
 }
 /* ---- reusable "show/hide password" eye toggle for every password field in the app ---- */
 function eyeIconSvg(open){
@@ -1348,7 +1357,7 @@ function screenCustomerRestaurants(){
             <div class="ot">${o.title}</div>
             <div class="os">${o.sub}</div>
           </div>
-          <img class="offer-card-img" src="${dummyImage(o.emoji, o.bg, 140, 140)}" alt="">
+          <img class="offer-card-img" src="${offerImage(o)}" alt="">
         </div>`).join('')}
     </div>
 
@@ -1440,7 +1449,7 @@ function screenCustomerOffers(){
           <div class="ot">${o.title}</div>
           <div class="os">${o.sub}</div>
         </div>
-        <img class="offer-card-img" src="${dummyImage(o.emoji, o.bg, 140, 140)}" alt="">
+        <img class="offer-card-img" src="${offerImage(o)}" alt="">
       </div>`).join('')}
   </div>`;
 }
@@ -2396,6 +2405,26 @@ function positionFloatingSocial(){
   el.style.right = (rightGutter >= 70 ? 16 : rightGutter + 16) + 'px';
 }
 window.addEventListener('resize', positionFloatingSocial);
+/* ---- auto-sliding offers carousel (Swiggy/Zomato-style) ----
+   Advances one card every 3s and loops back to the start at the end. Pauses for a few seconds
+   whenever the user touches/drags the row themselves, so it never fights a manual swipe. */
+let _offersPauseUntil = 0;
+document.addEventListener('pointerdown', e=>{
+  if(e.target.closest('.offers-row')) _offersPauseUntil = Date.now() + 4000;
+});
+setInterval(()=>{
+  if(Date.now() < _offersPauseUntil) return;
+  const el = document.querySelector('.offers-row');
+  if(!el) return;
+  const cards = el.querySelectorAll('.offer-card');
+  if(cards.length <= 1) return;
+  const step = cards[0].offsetWidth + 10; // card width + gap
+  if(el.scrollLeft + el.clientWidth >= el.scrollWidth - 5){
+    el.scrollTo({left:0, behavior:'smooth'});
+  } else {
+    el.scrollBy({left:step, behavior:'smooth'});
+  }
+}, 3000);
 /* ============ STARTUP ============ */
 /* Close the notification panel when tapping anywhere outside it. */
 document.addEventListener('click', function(e){
