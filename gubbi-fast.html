@@ -435,6 +435,13 @@ function offerTagFor(restaurantId){
 const PAYMENT_METHOD = 'UPI (PhonePe / Paytm / GPay)';
 // Fallback delivery point (central Gubbi) used when the browser denies/lacks geolocation
 const FALLBACK_LOC = {lat:13.3086, lng:76.9366};
+// Orders are only accepted 7:00 AM – 10:00 PM local time (restaurants/riders aren't staffed outside this window)
+const ORDER_HOURS = {openHour:7, closeHour:22};
+const ORDER_HOURS_LABEL = '7:00 AM – 10:00 PM';
+function isWithinOrderHours(){
+  const h = new Date().getHours();
+  return h >= ORDER_HOURS.openHour && h < ORDER_HOURS.closeHour;
+}
 function mapsLink(lat,lng){ return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
 /* Standard UPI deep link — opens whichever UPI app is installed (PhonePe, Paytm, GPay, etc.) with
    the payee, amount and note pre-filled. This is a ONE-WAY deep link only: there is no callback
@@ -1336,7 +1343,7 @@ function screenCustomerRestaurants(){
   const q = (S.searchQuery||'').toLowerCase();
   const cat = S.categoryFilter||'All';
   const vf = S.homeVegFilter || 'all';
-  const cats = ['All','South Indian','Biryani','Thali','Sweets'];
+  const cats = ['All','South Indian','Biryani','Sweets'];
   let list = DB.restaurants.filter(r=>{
     const matchesQ = !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q);
     const matchesCat = cat==='All' || r.cuisine.toLowerCase().includes(cat.toLowerCase().split(' ')[0]);
@@ -1391,6 +1398,7 @@ function screenCustomerRestaurants(){
         <div class="r-info">
           <h3>${r.name}</h3>
           <div class="meta">${r.cuisine} · ${r.area}${isPureVeg?' · 🌱 Pure Veg':''}</div>
+          <div class="badge">🕰️ ${ORDER_HOURS_LABEL}</div>
         </div>
       </div>`;
     }).join('')}</div>`}
@@ -1531,7 +1539,7 @@ function screenCustomerMenu(){
   ${restaurantImgTag(r, "menu-hero-img")}
   <div class="content" style="padding-top:14px;padding-bottom:${cartCount()>0?'110px':'20px'};">
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div class="meta" style="color:var(--muted);font-size:12px;">${r.cuisine} · ${r.area}${isPureVeg?' · 🌱 Pure Veg':''}</div>
+      <div class="meta" style="color:var(--muted);font-size:12px;">${r.cuisine} · ${r.area}${isPureVeg?' · 🌱 Pure Veg':''} · 🕰️ ${ORDER_HOURS_LABEL}</div>
       <div class="rating-tag" style="position:static;">★ ${ratingFor(r)}</div>
     </div>
     ${isMixed?`
@@ -1646,6 +1654,7 @@ async function useCurrentLocationForAddress(){
 function confirmAndPlace(){
   const addrEl = document.getElementById('addrEdit');
   if(addrEl) S._pendingAddress = addrEl.value.trim() || S._pendingAddress;
+  if(!isWithinOrderHours()){ showToast(`⏰ Orders are accepted only between ${ORDER_HOURS_LABEL}. Please try again during those hours.`); return; }
   if(!S.customerPhone){ go('customer-checkout-login'); return; }
   captureLocationThenPlaceOrder();
 }
