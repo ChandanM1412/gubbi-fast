@@ -1377,7 +1377,11 @@ function screenCustomerRestaurants(){
     }).join('')}</div>`}
   </div>`;
 }
-function setSearch(v){ S.searchQuery=v; render(); document.querySelector('.search-bar input')?.focus(); }
+function setSearch(v){
+  S.searchQuery=v; render();
+  const input = document.querySelector('.search-bar input');
+  if(input){ input.focus(); input.setSelectionRange(v.length, v.length); } // re-render moves the cursor to 0 otherwise, reversing typed text
+}
 function setCategory(c){ S.categoryFilter=c; render(); }
 function setHomeVegFilter(v){ S.homeVegFilter=v; render(); }
 function openRestaurant(id){ S.currentRestaurantId=id; S.cart={}; S.vegFilter='all'; go('customer-menu'); }
@@ -2367,15 +2371,15 @@ function render(){
   mountMaps();
   positionFloatingSocial();
 }
-/* Pins .floating-social to #app's real right edge (minus 16px) in viewport coordinates — computed
-   from the actual rendered layout instead of duplicating #app's max-width/centering math in CSS,
-   so it stays correct at every breakpoint. */
+/* Pins .floating-social to #app's real left edge (plus 16px) in viewport coordinates — the left
+   side because every list row's "ADD"/action button is right-aligned, so anchoring here means
+   the floating buttons never sit on top of a tappable control while scrolling. */
 function positionFloatingSocial(){
   const el = document.querySelector('.floating-social');
   const app = document.getElementById('app');
   if(!el || !app) return;
   const rect = app.getBoundingClientRect();
-  el.style.right = Math.max(0, window.innerWidth - rect.right + 16) + 'px';
+  el.style.left = Math.max(0, rect.left + 16) + 'px';
 }
 window.addEventListener('resize', positionFloatingSocial);
 /* ============ STARTUP ============ */
