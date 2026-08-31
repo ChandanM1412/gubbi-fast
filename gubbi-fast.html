@@ -2449,9 +2449,10 @@ function positionFloatingSocial(){
 }
 window.addEventListener('resize', positionFloatingSocial);
 /* ---- auto-sliding offers carousel (Swiggy/Zomato-style) ----
-   Advances one card every 3s and loops back to the start at the end. Pauses for a few seconds
+  Advances one card every 3s and reverses direction at either end. Pauses for a few seconds
    whenever the user touches/drags the row themselves, so it never fights a manual swipe. */
 let _offersPauseUntil = 0;
+let _offersDirection = 1;
 document.addEventListener('pointerdown', e=>{
   if(e.target.closest('.offers-row')) _offersPauseUntil = Date.now() + 4000;
 });
@@ -2462,11 +2463,11 @@ setInterval(()=>{
   const cards = el.querySelectorAll('.offer-card');
   if(cards.length <= 1) return;
   const step = cards[0].offsetWidth + 10; // card width + gap
-  if(el.scrollLeft + el.clientWidth >= el.scrollWidth - 5){
-    el.scrollTo({left:0, behavior:'smooth'});
-  } else {
-    el.scrollBy({left:step, behavior:'smooth'});
-  }
+  const atStart = el.scrollLeft <= 5;
+  const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 5;
+  if(atEnd) _offersDirection = -1;
+  if(atStart) _offersDirection = 1;
+  el.scrollBy({left:step * _offersDirection, behavior:'smooth'});
 }, 3000);
 /* ============ STARTUP ============ */
 /* Close the notification panel when tapping anywhere outside it. */
