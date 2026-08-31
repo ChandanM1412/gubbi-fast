@@ -1508,6 +1508,7 @@ function screenCustomerAccount(){
         <div class="meta" style="font-size:12px;color:var(--muted);margin-top:2px;">📍 ${S._pendingAddress||'No address saved'}</div>
       </div>
       <button class="btn btn-outline" onclick="go('customer-orders')">📦 My Orders</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="go('customer-change-password')">🔒 Change password</button>
       <button class="btn btn-ghost" style="margin-top:10px;" onclick="logout()">🚪 Logout</button>
     </div>`;
   }
@@ -1845,6 +1846,42 @@ function applyCustomerProfile(c){
 }
 function afterCustomerAuth(context){
   if(context==='checkout'){ captureLocationThenPlaceOrder(); } else { go('customer-restaurants'); }
+}
+function screenCustomerChangePassword(){
+  return `
+  ${backbar('Change password','customer-account')}
+  <div class="content">
+    <div class="card">
+      <div class="field"><label>Current password</label><div class="pw-wrap"><input id="cpCurrent" type="password" placeholder="Your current password">${pwEyeBtn()}</div></div>
+      <div class="field"><label>New password</label><div class="pw-wrap"><input id="cpNew" type="password" placeholder="At least 4 characters">${pwEyeBtn()}</div></div>
+      <div class="field"><label>Confirm new password</label><div class="pw-wrap"><input id="cpConfirm" type="password" placeholder="Re-enter new password">${pwEyeBtn()}</div></div>
+      <button class="btn btn-primary" onclick="submitCustomerChangePassword()">Update password</button>
+    </div>
+  </div>`;
+}
+async function submitCustomerChangePassword(){
+  const currentPassword = document.getElementById('cpCurrent').value||'';
+  const newPassword = document.getElementById('cpNew').value||'';
+  const confirmPassword = document.getElementById('cpConfirm').value||'';
+  if(!currentPassword || !newPassword){ showToast('Fill in your current and new password.'); return; }
+  if(newPassword.length<4){ showToast('New password must be at least 4 characters.'); return; }
+  if(newPassword!==confirmPassword){ showToast('New passwords do not match.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/customers/change-password', jsonPost({phone:S.customerPhone, currentPassword, newPassword}));
+    if(!ok){ showToast((data&&data.error)||'Could not update password.'); return; }
+    showToast('✅ Password updated.');
+    go('customer-account');
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local demo store below */ }
+  const creds = (await backendGet('customerCredentials')) || {};
+  const key = normalizePhoneClient(S.customerPhone);
+  const record = creds[key];
+  if(!record || record.password !== currentPassword){ showToast('Current password is incorrect.'); return; }
+  record.password = newPassword;
+  creds[key] = record;
+  await backendSet('customerCredentials', creds);
+  showToast('✅ Password updated.');
+  go('customer-account');
 }
 
 function screenCustomerPayment(){
@@ -2562,6 +2599,7 @@ function render(){
     case 'customer-cart': html = screenCustomerCart(); break;
     case 'customer-checkout-login': html = screenCustomerCheckoutLogin(); break;
     case 'location-picker': html = screenLocationPicker(); break;
+    case 'customer-change-password': html = screenCustomerChangePassword(); break;
     case 'customer-payment': html = screenCustomerPayment(); break;
     case 'customer-orders': html = screenCustomerOrders(); break;
     case 'rider-login': html = screenRiderLogin(); break;

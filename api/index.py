@@ -332,6 +332,26 @@ def customer_login():
     })
 
 
+@app.post("/api/customers/change-password")
+def customer_change_password():
+    body = request.get_json(silent=True) or {}
+    phone = _normalize_phone(body.get("phone"))
+    current_password = body.get("currentPassword") or ""
+    new_password = body.get("newPassword") or ""
+    if len(new_password) < 4:
+        return jsonify(error="New password must be at least 4 characters"), 400
+    creds_ref = get_db().collection("gubbiFast").document("customerCredentials")
+    snap = creds_ref.get()
+    creds = snap.to_dict() if snap.exists else {}
+    record = creds.get(phone)
+    if not record or not check_password_hash(record.get("passwordHash", ""), current_password):
+        return jsonify(error="Current password is incorrect"), 401
+    record["passwordHash"] = generate_password_hash(new_password)
+    creds[phone] = record
+    creds_ref.set(creds)
+    return jsonify(ok=True)
+
+
 # ============ ORDERS (customer/rider actions — no separate session token beyond the login
 # above, so these are validated by state + matching phone/riderId, same trust level as the
 # rest of the app) ============
