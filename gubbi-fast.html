@@ -2463,11 +2463,11 @@ setInterval(()=>{
   const cards = el.querySelectorAll('.offer-card');
   if(cards.length <= 1) return;
   const step = cards[0].offsetWidth + 10; // card width + gap
-  const atStart = el.scrollLeft <= 5;
-  const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 5;
-  if(atEnd) _offersDirection = -1;
-  if(atStart) _offersDirection = 1;
-  el.scrollBy({left:step * _offersDirection, behavior:'smooth'});
+  const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+  const nextTarget = Math.max(0, Math.min(maxScroll, el.scrollLeft + step * _offersDirection));
+  if(nextTarget >= maxScroll - 5) _offersDirection = -1;
+  else if(nextTarget <= 5) _offersDirection = 1;
+  el.scrollTo({left:nextTarget, behavior:'smooth'});
 }, 3000);
 /* ============ STARTUP ============ */
 /* Close the notification panel when tapping anywhere outside it. */
