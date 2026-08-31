@@ -1334,21 +1334,7 @@ function reorderFromRejected(orderId){
 function screenCustomerLogin(){
   return `
   ${backbar('Customer login','customer-account')}
-  <div class="content">
-    <div class="card">
-      <div class="field"><label>Your name</label><input id="cName" placeholder="e.g. Anitha Rao"></div>
-      <div class="field"><label>Phone number</label><input id="cPhone" placeholder="98xxxxxxxx"></div>
-      <div class="field"><label>Delivery address</label><input id="cAddr" placeholder="e.g. Near Bus Stand, Gubbi"></div>
-      <button class="btn btn-primary" onclick="doCustomerLogin()">Log in & browse restaurants</button>
-    </div>
-  </div>`;
-}
-function doCustomerLogin(){
-  const name = document.getElementById('cName').value.trim() || 'Guest';
-  const phone = document.getElementById('cPhone').value.trim() || '—';
-  const addr = document.getElementById('cAddr').value.trim() || 'Home';
-  S.role='customer'; S.customerName=name; S.customerPhone=phone; S._pendingAddress=addr; S.homeVegFilter='all';
-  go('customer-restaurants');
+  <div class="content">${customerAuthFormHtml('account')}</div>`;
 }
 
 function screenCustomerRestaurants(){
@@ -1636,7 +1622,10 @@ function screenCustomerCart(){
         <label>Deliver to</label>
         <input id="addrEdit" value="${S._pendingAddress||''}" placeholder="Flat/house no., street, area">
       </div>
-      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="useCurrentLocationForAddress()">📍 Use my current location</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="useCurrentLocationForAddress()">📍 Use my current location</button>
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="openLocationPicker('customer-cart')">🗺️ Pick exact location on map</button>
+      </div>
       ${S._locCaptured?`<div class="meta" style="font-size:11px;color:var(--green);margin-top:8px;">✅ Live location added — your rider can navigate straight to you.</div>`:''}
     </div>
     <div class="card">
@@ -1673,6 +1662,83 @@ async function useCurrentLocationForAddress(){
     showToast("Couldn't access your location — please type your address instead.");
   }, {timeout:8000});
 }
+/* ---- interactive map location picker: lets the customer drag a pin to their exact spot
+   instead of relying only on GPS/typed text ---- */
+function screenLocationPicker(){
+  return `
+  ${backbar('Pick your delivery location', S._locPickerReturnScreen||'customer-cart')}
+  <div class="content">
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:8px;">Drag the pin, or tap the map, to set your exact delivery spot.</div>
+    <div id="locPickerMap" style="width:100%;height:320px;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);"></div>
+    <div class="meta" id="locPickerAddrText" style="font-size:12px;margin:10px 0;">${S._locPickerAddress||'Move the pin to set your address'}</div>
+    <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="useDeviceLocationForPicker()">📍 Use my current location</button>
+    <button class="btn btn-primary" style="margin-top:12px;" onclick="confirmPickedLocation()">Confirm this location</button>
+  </div>`;
+}
+function openLocationPicker(returnScreen){
+  S._locPickerReturnScreen = returnScreen;
+  S._locPickerLat = S._pendingLat!=null ? S._pendingLat : FALLBACK_LOC.lat;
+  S._locPickerLng = S._pendingLng!=null ? S._pendingLng : FALLBACK_LOC.lng;
+  S._locPickerAddress = S._pendingAddress || null;
+  go('location-picker');
+}
+let _pickerMap = null, _pickerMarker = null;
+async function mountLocationPicker(){
+  const el = document.getElementById('locPickerMap');
+  if(!el) return;
+  try{ await ensureLeaflet(); }catch(e){ return; }
+  if(!window.L) return;
+  if(_pickerMap){ _pickerMap.remove(); _pickerMap=null; _pickerMarker=null; }
+  const lat = S._locPickerLat, lng = S._locPickerLng;
+  _pickerMap = L.map(el).setView([lat,lng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(_pickerMap);
+  _pickerMarker = L.marker([lat,lng], {draggable:true}).addTo(_pickerMap);
+  _pickerMarker.on('dragend', ()=>{
+    const pos = _pickerMarker.getLatLng();
+    updatePickedLocation(pos.lat, pos.lng);
+  });
+  _pickerMap.on('click', e=>{
+    _pickerMarker.setLatLng(e.latlng);
+    updatePickedLocation(e.latlng.lat, e.latlng.lng);
+  });
+}
+/* Reverse-geocodes the dragged pin so the address label updates without a full re-render
+   (a full render would remount the map and reset its zoom/pan mid-drag). */
+async function updatePickedLocation(lat, lng){
+  S._locPickerLat = lat; S._locPickerLng = lng;
+  S._locPickerAddress = `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  const label = document.getElementById('locPickerAddrText');
+  if(label) label.textContent = S._locPickerAddress;
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.display_name){
+        S._locPickerAddress = data.display_name;
+        if(label) label.textContent = S._locPickerAddress;
+      }
+    }
+  }catch(e){ /* reverse geocoding unavailable — keep the coordinate label */ }
+}
+function useDeviceLocationForPicker(){
+  if(!navigator.geolocation){ showToast("Location isn't supported on this device."); return; }
+  showToast('📍 Getting your location…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat, longitude:lng} = pos.coords;
+    if(_pickerMarker) _pickerMarker.setLatLng([lat,lng]);
+    if(_pickerMap) _pickerMap.setView([lat,lng], 16);
+    updatePickedLocation(lat, lng);
+  }, ()=> showToast("Couldn't access your location — drag the pin instead."), {timeout:8000});
+}
+function confirmPickedLocation(){
+  if(S._locPickerLat==null || S._locPickerLng==null){ showToast('Move the pin to set your location first.'); return; }
+  S._pendingLat = S._locPickerLat; S._pendingLng = S._locPickerLng;
+  S._pendingAddress = S._locPickerAddress || S._pendingAddress;
+  S._locCaptured = true;
+  if(S._authDraft) S._authDraft.address = S._pendingAddress;
+  showToast('📍 Location pinned.');
+  go(S._locPickerReturnScreen || 'customer-cart');
+}
 /* Guests can browse, add to cart and open the cart freely — login is only required at the
    final "place order" tap, matching real food-delivery apps (checkout gates the login, not
    browsing). */
@@ -1686,22 +1752,99 @@ function confirmAndPlace(){
 function screenCustomerCheckoutLogin(){
   return `
   ${backbar('Log in to place your order','customer-cart')}
-  <div class="content">
-    <div class="card">
-      <div class="field"><label>Your name</label><input id="ccName" placeholder="e.g. Anitha Rao"></div>
-      <div class="field"><label>Phone number</label><input id="ccPhone" placeholder="98xxxxxxxx"></div>
-      <div class="field"><label>Delivery address</label><input id="ccAddr" value="${S._pendingAddress||''}" placeholder="e.g. Near Bus Stand, Gubbi"></div>
-      <button class="btn btn-primary" onclick="submitCheckoutLogin()">Continue to checkout</button>
-    </div>
-  </div>`;
+  <div class="content">${customerAuthFormHtml('checkout')}</div>`;
 }
-function submitCheckoutLogin(){
-  const name = document.getElementById('ccName').value.trim();
-  const phone = document.getElementById('ccPhone').value.trim();
-  const addr = document.getElementById('ccAddr').value.trim();
-  if(!name || !phone){ showToast('Enter your name and phone number.'); return; }
-  S.role='customer'; S.customerName=name; S.customerPhone=phone; S._pendingAddress = addr || S._pendingAddress || 'Home';
-  captureLocationThenPlaceOrder();
+/* Shared login/signup form used both from Account > "Login / Sign up" and from the cart's
+   checkout gate — 'context' ('account'|'checkout') only decides what happens after success. */
+function customerAuthFormHtml(context){
+  const tab = S._authTab || 'login';
+  const draft = S._authDraft || {};
+  return `
+    <div class="veg-filter-row" style="margin-bottom:14px;">
+      <div class="veg-chip ${tab==='login'?'active':''}" onclick="setAuthTab('login')">Log in</div>
+      <div class="veg-chip ${tab==='signup'?'active':''}" onclick="setAuthTab('signup')">Sign up</div>
+    </div>
+    ${tab==='login' ? `
+    <div class="card">
+      <div class="field"><label>Phone number</label><input id="authPhone" placeholder="98xxxxxxxx" value="${draft.phone||''}"></div>
+      <div class="field"><label>Password</label><div class="pw-wrap"><input id="authPassword" type="password" placeholder="Your password">${pwEyeBtn()}</div></div>
+      <button class="btn btn-primary" onclick="submitCustomerLogin('${context}')">Log in</button>
+    </div>` : `
+    <div class="card">
+      <div class="field"><label>Your name</label><input id="authName" placeholder="e.g. Anitha Rao" value="${draft.name||''}"></div>
+      <div class="field"><label>Phone number</label><input id="authPhone" placeholder="98xxxxxxxx" value="${draft.phone||''}"></div>
+      <div class="field"><label>Create password</label><div class="pw-wrap"><input id="authPassword" type="password" placeholder="At least 4 characters">${pwEyeBtn()}</div></div>
+      <div class="field"><label>Confirm password</label><div class="pw-wrap"><input id="authConfirmPassword" type="password" placeholder="Re-enter password">${pwEyeBtn()}</div></div>
+      <div class="field"><label>Delivery address</label><input id="authAddr" value="${draft.address||S._pendingAddress||''}" placeholder="Flat/house no., street, area"></div>
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="openLocationPickerFromAuth('${context}')">🗺️ Pick exact location on map</button>
+      ${S._locCaptured?`<div class="meta" style="font-size:11px;color:var(--green);margin-top:8px;">✅ Location pinned — your rider can navigate straight to you.</div>`:''}
+      <button class="btn btn-primary" style="margin-top:12px;" onclick="submitCustomerSignup('${context}')">Create account</button>
+    </div>`}
+  `;
+}
+function setAuthTab(tab){ S._authTab = tab; render(); }
+function captureAuthDraft(){
+  const val = id => { const el=document.getElementById(id); return el ? el.value : undefined; };
+  S._authDraft = Object.assign({}, S._authDraft, {
+    name: val('authName'), phone: val('authPhone'), address: val('authAddr'),
+  });
+}
+function openLocationPickerFromAuth(context){
+  captureAuthDraft();
+  openLocationPicker(context==='account' ? 'customer-login' : 'customer-checkout-login');
+}
+function normalizePhoneClient(phone){ return String(phone||'').replace(/\D/g,'').slice(-10); }
+async function submitCustomerLogin(context){
+  const phone = (document.getElementById('authPhone').value||'').trim();
+  const password = document.getElementById('authPassword').value||'';
+  if(!phone || !password){ showToast('Enter your phone number and password.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/customers/login', jsonPost({phone, password}));
+    if(!ok){ showToast((data&&data.error)||'Incorrect phone number or password.'); return; }
+    applyCustomerProfile(data.customer);
+    afterCustomerAuth(context);
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local demo store below */ }
+  const creds = (await backendGet('customerCredentials')) || {};
+  const key = normalizePhoneClient(phone);
+  const record = creds[key];
+  if(!record || record.password !== password){ showToast('Incorrect phone number or password.'); return; }
+  applyCustomerProfile({name:record.name, phone:key, address:record.address, lat:record.lat, lng:record.lng});
+  afterCustomerAuth(context);
+}
+async function submitCustomerSignup(context){
+  const name = (document.getElementById('authName').value||'').trim();
+  const phone = (document.getElementById('authPhone').value||'').trim();
+  const password = document.getElementById('authPassword').value||'';
+  const confirmPassword = document.getElementById('authConfirmPassword').value||'';
+  const address = (document.getElementById('authAddr').value||'').trim();
+  if(!name || !phone || !password){ showToast('Fill in your name, phone number and password.'); return; }
+  if(password.length<4){ showToast('Password must be at least 4 characters.'); return; }
+  if(password!==confirmPassword){ showToast('Passwords do not match.'); return; }
+  if(!address){ showToast('Add your delivery address, or pick it on the map.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/customers/signup', jsonPost({name, phone, password, address, lat:S._pendingLat, lng:S._pendingLng}));
+    if(!ok){ showToast((data&&data.error)||'Could not sign up — try again.'); return; }
+    applyCustomerProfile(data.customer);
+    afterCustomerAuth(context);
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local demo store below */ }
+  const creds = (await backendGet('customerCredentials')) || {};
+  const key = normalizePhoneClient(phone);
+  if(creds[key]){ showToast('This phone number is already registered — please log in instead.'); return; }
+  creds[key] = {password, name, address, lat:S._pendingLat, lng:S._pendingLng};
+  await backendSet('customerCredentials', creds);
+  applyCustomerProfile({name, phone:key, address, lat:S._pendingLat, lng:S._pendingLng});
+  afterCustomerAuth(context);
+}
+function applyCustomerProfile(c){
+  S.role='customer'; S.customerName=c.name; S.customerPhone=c.phone; S.homeVegFilter=S.homeVegFilter||'all';
+  S._pendingAddress = c.address || S._pendingAddress || 'Home';
+  if(c.lat!=null && c.lng!=null){ S._pendingLat=c.lat; S._pendingLng=c.lng; S._locCaptured=true; }
+  S._authDraft = null; S._authTab = 'login';
+}
+function afterCustomerAuth(context){
+  if(context==='checkout'){ captureLocationThenPlaceOrder(); } else { go('customer-restaurants'); }
 }
 
 function screenCustomerPayment(){
@@ -2418,6 +2561,7 @@ function render(){
     case 'customer-menu': html = screenCustomerMenu(); break;
     case 'customer-cart': html = screenCustomerCart(); break;
     case 'customer-checkout-login': html = screenCustomerCheckoutLogin(); break;
+    case 'location-picker': html = screenLocationPicker(); break;
     case 'customer-payment': html = screenCustomerPayment(); break;
     case 'customer-orders': html = screenCustomerOrders(); break;
     case 'rider-login': html = screenRiderLogin(); break;
@@ -2433,6 +2577,7 @@ function render(){
   }
   app.innerHTML = html;
   mountMaps();
+  if(S.screen==='location-picker') mountLocationPicker();
   positionFloatingSocial();
 }
 /* Pins .floating-social relative to the actual viewport (not #app) so that on wide browser

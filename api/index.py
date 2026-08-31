@@ -282,8 +282,58 @@ def clear_orders():
     return jsonify(ok=True)
 
 
-# ============ ORDERS (customer/rider actions — no login system in this app, so these are
-# validated by state + matching phone/riderId rather than a session, same trust level as the
+# ============ CUSTOMER AUTH ============
+# Password hashes live in their own 'customerCredentials' doc, keyed by normalized 10-digit
+# phone number — never included in the 'catalog'/'live' docs the frontend reads, so a
+# customer's password (even hashed) is never sent to any browser.
+
+def _normalize_phone(phone):
+    return "".join(ch for ch in str(phone or "") if ch.isdigit())[-10:]
+
+
+@app.post("/api/customers/signup")
+def customer_signup():
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()[:60]
+    phone = _normalize_phone(body.get("phone"))
+    password = body.get("password") or ""
+    address = (body.get("address") or "").strip()[:200]
+    lat, lng = body.get("lat"), body.get("lng")
+    if not name or len(phone) != 10:
+        return jsonify(error="Enter your name and a valid 10-digit phone number"), 400
+    if len(password) < 4:
+        return jsonify(error="Password must be at least 4 characters"), 400
+    creds_ref = get_db().collection("gubbiFast").document("customerCredentials")
+    snap = creds_ref.get()
+    creds = snap.to_dict() if snap.exists else {}
+    if phone in creds:
+        return jsonify(error="This phone number is already registered — please log in instead."), 409
+    creds[phone] = {
+        "passwordHash": generate_password_hash(password),
+        "name": name, "address": address, "lat": lat, "lng": lng,
+    }
+    creds_ref.set(creds)
+    return jsonify(ok=True, customer={"name": name, "phone": phone, "address": address, "lat": lat, "lng": lng})
+
+
+@app.post("/api/customers/login")
+def customer_login():
+    body = request.get_json(silent=True) or {}
+    phone = _normalize_phone(body.get("phone"))
+    password = body.get("password") or ""
+    creds_snap = get_db().collection("gubbiFast").document("customerCredentials").get()
+    creds = creds_snap.to_dict() if creds_snap.exists else {}
+    record = creds.get(phone)
+    if not record or not check_password_hash(record.get("passwordHash", ""), password):
+        return jsonify(error="Incorrect phone number or password"), 401
+    return jsonify(ok=True, customer={
+        "name": record.get("name"), "phone": phone, "address": record.get("address"),
+        "lat": record.get("lat"), "lng": record.get("lng"),
+    })
+
+
+# ============ ORDERS (customer/rider actions — no separate session token beyond the login
+# above, so these are validated by state + matching phone/riderId, same trust level as the
 # rest of the app) ============
 
 @app.post("/api/orders")
