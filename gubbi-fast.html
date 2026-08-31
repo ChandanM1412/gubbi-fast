@@ -203,10 +203,10 @@
   .bn-item.active{color:var(--marigold-dark);}
   .bn-icon{font-size:19px;position:relative;display:inline-block;}
   .bn-label{font-size:10px;font-weight:700;margin-top:2px;}
-  /* floating WhatsApp/Instagram contact buttons */
+  /* floating WhatsApp/Instagram contact buttons — positioned in JS (see positionFloatingSocial)
+     against #app's actual edge so it's pixel-correct at every breakpoint, not approximated. */
   .floating-social{
-    position:fixed;bottom:170px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
-    display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-right:16px;
+    position:fixed;bottom:170px;display:flex;flex-direction:column;gap:10px;
     pointer-events:none;z-index:45;
   }
   .fs-btn{
@@ -327,7 +327,7 @@
     .offers-row{margin:0 0 4px;padding-left:0;padding-right:0;}
     .m-item{padding:14px 0;}
     .backbar{padding:20px 32px 4px;}
-    .cart-bar, .bottom-nav, .floating-social{max-width:1100px;}
+    .cart-bar, .bottom-nav{max-width:1100px;}
   }
 </style>
 </head>
@@ -742,15 +742,32 @@ function playNotifSound(){
   }catch(e){ /* audio blocked/unavailable — notification still shows visually */ }
 }
 
-/* ---- image upload helper (admin: pick a real photo from device, stored as a data URL) ---- */
-function handleImageUpload(inputEl, previewImgId){
+/* ---- image upload helper (admin: pick a real photo from device, stored as a data URL) ----
+   Downscales/compresses on a canvas first so a phone photo (often several MB) doesn't blow past
+   Firestore's 1MB-per-document limit once several photos share the same "catalog" document. */
+function handleImageUpload(inputEl, previewImgId, targetValueInputId){
   const file = inputEl.files && inputEl.files[0];
   if(!file) return;
   const reader = new FileReader();
   reader.onload = e=>{
-    inputEl.dataset.uploaded = e.target.result;
-    const img = document.getElementById(previewImgId);
-    if(img) img.src = e.target.result;
+    const img = new Image();
+    img.onload = ()=>{
+      const maxDim = 480;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      inputEl.dataset.uploaded = dataUrl;
+      const preview = document.getElementById(previewImgId);
+      if(preview) preview.src = dataUrl;
+      if(targetValueInputId){
+        const valueInput = document.getElementById(targetValueInputId);
+        if(valueInput) valueInput.value = dataUrl;
+      }
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -2010,7 +2027,14 @@ function editRestaurantForm(r){
     <div class="field"><label>Delivery ETA</label><input id="editREta_${r.id}" value="${r.eta}"></div>
     <div class="field"><label>Emoji icon</label><input id="editREmoji_${r.id}" value="${r.emoji}" maxlength="2"></div>
     <div class="field"><label>Rating (out of 5)</label><input id="editRRating_${r.id}" type="number" min="1" max="5" step="0.1" value="${ratingFor(r)}"></div>
-    <div class="field"><label>Image URL</label><input id="editRImage_${r.id}" value="${r.image||''}"></div>
+    <div class="field">
+      <label>Restaurant image — paste a URL, or upload from device</label>
+      <input id="editRImage_${r.id}" value="${r.image||''}" placeholder="https://... (optional)" oninput="document.getElementById('editRImgPreview_${r.id}').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
+      <div class="img-upload-row">
+        <img id="editRImgPreview_${r.id}" class="img-preview" src="${r.image||dummyImage('🍴','#F2A93B',80,80)}">
+        <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="editRImageFile_${r.id}" onchange="handleImageUpload(this,'editRImgPreview_${r.id}','editRImage_${r.id}')"></label>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-primary" style="width:auto;padding:9px 16px;" onclick="submitEditRestaurant('${r.id}')">Save changes</button>
       <button class="btn btn-ghost" onclick="openEditRestaurant('${r.id}')">Cancel</button>
@@ -2094,7 +2118,14 @@ function editMenuItemForm(restId, it){
       <input type="hidden" id="editMVeg_${it.id}" value="${it.veg}">
     </div>
     <div class="field"><label>Emoji icon</label><input id="editMEmoji_${it.id}" value="${it.emoji}" maxlength="2"></div>
-    <div class="field"><label>Image URL</label><input id="editMImage_${it.id}" value="${it.image||''}"></div>
+    <div class="field">
+      <label>Food image — paste a URL, or upload from device</label>
+      <input id="editMImage_${it.id}" value="${it.image||''}" placeholder="https://... (optional)" oninput="document.getElementById('editMImgPreview_${it.id}').src=this.value||'${dummyImage('🍽️','#2E6B4F',80,80)}'">
+      <div class="img-upload-row">
+        <img id="editMImgPreview_${it.id}" class="img-preview" src="${it.image||dummyImage('🍽️','#2E6B4F',80,80)}">
+        <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="editMImageFile_${it.id}" onchange="handleImageUpload(this,'editMImgPreview_${it.id}','editMImage_${it.id}')"></label>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="submitEditMenuItem('${restId}','${it.id}')">Save changes</button>
       <button class="btn btn-ghost" onclick="openEditMenuItem('${it.id}')">Cancel</button>
@@ -2334,7 +2365,19 @@ function render(){
   }
   app.innerHTML = html;
   mountMaps();
+  positionFloatingSocial();
 }
+/* Pins .floating-social to #app's real right edge (minus 16px) in viewport coordinates — computed
+   from the actual rendered layout instead of duplicating #app's max-width/centering math in CSS,
+   so it stays correct at every breakpoint. */
+function positionFloatingSocial(){
+  const el = document.querySelector('.floating-social');
+  const app = document.getElementById('app');
+  if(!el || !app) return;
+  const rect = app.getBoundingClientRect();
+  el.style.right = Math.max(0, window.innerWidth - rect.right + 16) + 'px';
+}
+window.addEventListener('resize', positionFloatingSocial);
 /* ============ STARTUP ============ */
 /* Close the notification panel when tapping anywhere outside it. */
 document.addEventListener('click', function(e){
