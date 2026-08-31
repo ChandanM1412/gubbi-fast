@@ -1148,6 +1148,7 @@ async function updateRider(id, fields){
     if(!body.password) delete body.password;
     const {ok, data} = await apiCall(`/api/catalog/riders/${id}`, jsonReq('PATCH', body, authHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
+    S._editRiderFor = null;
     await pollShared();
     showToast('Rider updated.');
     return;
@@ -1156,6 +1157,7 @@ async function updateRider(id, fields){
   if(!r) return;
   r.name = fields.name; r.phone = fields.phone; r.commissionPercent = fields.commissionPercent;
   if(fields.password) r.password = fields.password;
+  S._editRiderFor = null;
   saveCatalog();
   showToast('Rider updated.');
   render();
@@ -2160,23 +2162,34 @@ function adminRiders(){
     <div class="field"><label>Commission per delivered order (%)</label><input id="newRiderPay" type="number" placeholder="10" value="10"></div>
     <button class="btn btn-primary" onclick="submitAddRider()">Add rider</button>
   </div>
-  <div class="section-title">All riders — edit details or reset a password below</div>
+  <div class="section-title">All riders — tap ✏️ to edit details or reset a password</div>
   ${DB.riders.map(r=>{
     const active = DB.orders.filter(o=>o.riderId===r.id && o.status!=='Delivered').length;
     const delivered = DB.orders.filter(o=>o.riderId===r.id && o.status==='Delivered').length;
     return `<div class="card" style="padding:12px 14px;margin-bottom:10px;">
-      <div class="list-row" style="border-bottom:none;padding-bottom:8px;">
+      <div class="list-row" style="border-bottom:none;padding-bottom:0;">
         <div class="swatch" style="background:#E6EEFB;">🛵</div>
         <div class="li"><strong>${r.name}</strong><span>${active} active · ${delivered} delivered</span></div>
+        <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditRider('${r.id}')">✏️</button>
         <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteRider('${r.id}')">Remove</button>
       </div>
-      <div class="field"><label>Name</label><input id="rName_${r.id}" value="${r.name}"></div>
-      <div class="field"><label>Phone</label><input id="rPhone_${r.id}" value="${r.phone}"></div>
-      <div class="field"><label>Commission per delivered order (%)</label><input type="number" id="rPay_${r.id}" value="${r.commissionPercent||0}"></div>
-      <div class="field"><label>Reset password <span style="font-weight:400;color:var(--muted);">(leave blank to keep current)</span></label><div class="pw-wrap"><input id="rPassword_${r.id}" type="password" placeholder="New password">${pwEyeBtn()}</div></div>
-      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="submitEditRider('${r.id}')">Save changes</button>
+      ${S._editRiderFor===r.id?editRiderForm(r):''}
     </div>`;
   }).join('')}`;
+}
+function openEditRider(id){ S._editRiderFor = (S._editRiderFor===id)?null:id; render(); }
+function editRiderForm(r){
+  return `
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+    <div class="field"><label>Name</label><input id="rName_${r.id}" value="${r.name}"></div>
+    <div class="field"><label>Phone</label><input id="rPhone_${r.id}" value="${r.phone}"></div>
+    <div class="field"><label>Commission per delivered order (%)</label><input type="number" id="rPay_${r.id}" value="${r.commissionPercent||0}"></div>
+    <div class="field"><label>Reset password <span style="font-weight:400;color:var(--muted);">(leave blank to keep current)</span></label><div class="pw-wrap"><input id="rPassword_${r.id}" type="password" placeholder="New password">${pwEyeBtn()}</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="submitEditRider('${r.id}')">Save changes</button>
+      <button class="btn btn-ghost" onclick="openEditRider('${r.id}')">Cancel</button>
+    </div>
+  </div>`;
 }
 function submitAddRider(){
   const n = document.getElementById('newRiderName').value.trim();
