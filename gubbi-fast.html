@@ -450,7 +450,9 @@ const FALLBACK_LOC = {lat:13.3086, lng:76.9366};
 // Orders are only accepted 7:00 AM – 10:00 PM local time (restaurants/riders aren't staffed outside this window)
 const ORDER_HOURS = {openHour:7, closeHour:22};
 const ORDER_HOURS_LABEL = '7:00 AM – 10:00 PM';
+const ENFORCE_ORDER_HOURS = false; // TEMP: disabled for testing — flip back to true to re-enable the checkout restriction
 function isWithinOrderHours(){
+  if(!ENFORCE_ORDER_HOURS) return true;
   const h = new Date().getHours();
   return h >= ORDER_HOURS.openHour && h < ORDER_HOURS.closeHour;
 }
