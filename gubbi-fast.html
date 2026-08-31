@@ -1968,9 +1968,30 @@ function screenCustomerOrders(){
           <span class="badge" style="background:${o.locShared?'#E6EEFB':'var(--paper)'};color:${o.locShared?'#2453A8':'var(--muted)'};">${o.locShared?'📍 Live location shared':'📍 '+o.address}</span>
         </div>
         ${rider?`<div class="meta" style="font-size:12px;margin-top:8px;">🛵 ${rider.name} · ${rider.phone}</div>`:''}
+        ${o.status==='Delivered'?orderRatingWidget(o.id):''}
       </div>`;
     }).join('')}
   </div>`;
+}
+/* Star rating is a pure UI courtesy — nothing is sent to the server or saved anywhere; it just
+   thanks the customer and marks itself "rated" for the rest of this browser session. */
+function orderRatingWidget(orderId){
+  if(S._ratedOrders && S._ratedOrders[orderId]){
+    return `<div class="meta" style="font-size:12px;color:var(--green);margin-top:10px;">✅ Thanks for rating this order!</div>`;
+  }
+  return `
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:6px;">How was your order?</div>
+    <div style="display:flex;gap:4px;">
+      ${[1,2,3,4,5].map(n=>`<span style="font-size:22px;cursor:pointer;" onclick="rateOrder('${orderId}',${n})">⭐</span>`).join('')}
+    </div>
+  </div>`;
+}
+function rateOrder(orderId, stars){
+  S._ratedOrders = S._ratedOrders || {};
+  S._ratedOrders[orderId] = stars; // kept in memory only for this session — never saved to the backend
+  showToast(`🙏 Thank you for your ${stars}-star rating!`);
+  render();
 }
 
 /* ---- RIDER ---- */
