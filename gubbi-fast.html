@@ -2371,15 +2371,17 @@ function render(){
   mountMaps();
   positionFloatingSocial();
 }
-/* Pins .floating-social to #app's real right edge (minus 16px) in viewport coordinates — computed
-   from the actual rendered layout instead of duplicating #app's max-width/centering math in CSS,
-   so it stays correct at every breakpoint. */
+/* Pins .floating-social relative to the actual viewport (not #app) so that on wide browser
+   windows — where #app is centered with empty space on either side — the buttons float in that
+   empty margin instead of sitting on top of list content/ADD buttons. Only falls back to hugging
+   #app's own edge when the window is too narrow to have any such margin (true mobile widths). */
 function positionFloatingSocial(){
   const el = document.querySelector('.floating-social');
   const app = document.getElementById('app');
   if(!el || !app) return;
   const rect = app.getBoundingClientRect();
-  el.style.right = Math.max(0, window.innerWidth - rect.right + 16) + 'px';
+  const rightGutter = window.innerWidth - rect.right;
+  el.style.right = (rightGutter >= 70 ? 16 : rightGutter + 16) + 'px';
 }
 window.addEventListener('resize', positionFloatingSocial);
 /* ============ STARTUP ============ */
