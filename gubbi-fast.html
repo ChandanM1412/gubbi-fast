@@ -205,10 +205,10 @@
   .bn-label{font-size:10px;font-weight:700;margin-top:2px;}
   /* floating WhatsApp/Instagram contact buttons */
   .floating-social{
-    position:fixed;bottom:170px;right:calc(50% - 250px);display:flex;flex-direction:column;gap:10px;
+    position:fixed;bottom:170px;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+    display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-right:16px;
     pointer-events:none;z-index:45;
   }
-  @media (max-width:560px){ .floating-social{ right:16px; } }
   .fs-btn{
     pointer-events:auto;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     font-size:21px;text-decoration:none;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.28);

@@ -35,6 +35,12 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Gubbi@Admin2026")
 TOKEN_TTL_SECONDS = 12 * 60 * 60
 FALLBACK_LAT, FALLBACK_LNG = 13.3086, 76.9366  # central Gubbi (Tumkur dist.), used when a customer denies GPS
 
+# Bump this whenever DEFAULT_CATALOG's demo data changes (e.g. fixing a broken image URL) so the
+# already-seeded Firestore doc gets refreshed instead of silently keeping the stale demo copy.
+# NOTE: once real admin edits exist in production, bumping this will overwrite them — only bump
+# during initial setup/testing, not after the app has real restaurants/orders.
+DEFAULT_CATALOG_SEED_VERSION = 2
+
 # Seed data + default settings — this is the ONLY copy of it; the frontend ships empty and pulls
 # everything from GET /api/catalog / GET /api/live below, so nothing here is visible in the
 # browser's page source or dev tools.
@@ -173,6 +179,7 @@ def _run_order_mutation(order_id, mutate_fn):
 def _seed_catalog_if_missing(catalog_ref):
     data = json.loads(json.dumps(DEFAULT_CATALOG))  # deep copy, keeps DEFAULT_CATALOG pristine
     data["catalogRev"] = 1
+    data["seedVersion"] = DEFAULT_CATALOG_SEED_VERSION
     catalog_ref.set(data)
     creds_ref = get_db().collection("gubbiFast").document("riderCredentials")
     if not creds_ref.get().exists:
@@ -184,7 +191,10 @@ def _get_catalog():
     catalog_ref = get_db().collection("gubbiFast").document("catalog")
     snap = catalog_ref.get()
     if snap.exists:
-        return snap.to_dict()
+        data = snap.to_dict()
+        if data.get("seedVersion") != DEFAULT_CATALOG_SEED_VERSION:
+            return _seed_catalog_if_missing(catalog_ref)
+        return data
     return _seed_catalog_if_missing(catalog_ref)
 
 
