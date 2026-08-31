@@ -39,7 +39,7 @@ FALLBACK_LAT, FALLBACK_LNG = 13.3086, 76.9366  # central Gubbi (Tumkur dist.), u
 # already-seeded Firestore doc gets refreshed instead of silently keeping the stale demo copy.
 # NOTE: once real admin edits exist in production, bumping this will overwrite them — only bump
 # during initial setup/testing, not after the app has real restaurants/orders.
-DEFAULT_CATALOG_SEED_VERSION = 2
+DEFAULT_CATALOG_SEED_VERSION = 3
 
 # Seed data + default settings — this is the ONLY copy of it; the frontend ships empty and pulls
 # everything from GET /api/catalog / GET /api/live below, so nothing here is visible in the
@@ -47,9 +47,9 @@ DEFAULT_CATALOG_SEED_VERSION = 2
 DEFAULT_CATALOG = {
     "restaurants": [
         {"id": "r1", "name": "Gubbi Tiffin House", "cuisine": "South Indian · Tiffins", "area": "B.H. Road, Gubbi", "eta": "25-30 min", "rating": 4.3, "color": "#F2A93B", "emoji": "🍛", "lat": 13.3096, "lng": 76.9376, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Masala_dosa_01.jpg/960px-Masala_dosa_01.jpg"},
-        {"id": "r2", "name": "Namma Biryani Corner", "cuisine": "Biryani · Kebabs", "area": "Bus Stand Road, Gubbi", "eta": "30-35 min", "rating": 4.1, "color": "#C1442E", "emoji": "🍚", "lat": 13.3070, "lng": 76.9350, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Chicken_Hyderabadi_Biryani.JPG/960px-Chicken_Hyderabadi_Biryani.JPG"},
-        {"id": "r3", "name": "Malnad Meals", "cuisine": "Karnataka Thali", "area": "Tumkur Road, Gubbi", "eta": "20-25 min", "rating": 4.5, "color": "#2E6B4F", "emoji": "🍲", "lat": 13.3110, "lng": 76.9390, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Vegetarian_thali_Karnataka_DSC0004.jpg/960px-Vegetarian_thali_Karnataka_DSC0004.jpg"},
-        {"id": "r4", "name": "Silk City Sweets & Snacks", "cuisine": "Sweets · Chaat", "area": "APMC Yard, Gubbi", "eta": "15-20 min", "rating": 4.0, "color": "#8E5FA3", "emoji": "🍬", "lat": 13.3060, "lng": 76.9410, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Mysore_pak.jpg/960px-Mysore_pak.jpg"},
+        {"id": "r2", "name": "Royals Food", "cuisine": "Multi-Cuisine · Biryani", "area": "Bus Stand Road, Gubbi", "eta": "30-35 min", "rating": 4.1, "color": "#C1442E", "emoji": "🍚", "lat": 13.3070, "lng": 76.9350, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Chicken_Hyderabadi_Biryani.JPG/960px-Chicken_Hyderabadi_Biryani.JPG"},
+        {"id": "r3", "name": "Kaveri Bakery", "cuisine": "Bakery · Sweets", "area": "Tumkur Road, Gubbi", "eta": "20-25 min", "rating": 4.5, "color": "#2E6B4F", "emoji": "🥐", "lat": 13.3110, "lng": 76.9390, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/IndianBakeryRolls1.jpg/960px-IndianBakeryRolls1.jpg"},
+        {"id": "r4", "name": "Bangarpet Chats", "cuisine": "Chaat · Street Food", "area": "APMC Yard, Gubbi", "eta": "15-20 min", "rating": 4.0, "color": "#8E5FA3", "emoji": "🥟", "lat": 13.3060, "lng": 76.9410, "image": "https://upload.wikimedia.org/wikipedia/commons/2/22/Bhel_puri_Snack.jpg"},
     ],
     "menu": {
         "r1": [
@@ -65,14 +65,14 @@ DEFAULT_CATALOG = {
             {"id": "m8", "name": "Chicken Seekh Kebab", "price": 190, "veg": False, "emoji": "🍢", "image": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Seekh_Kebab.JPG"},
         ],
         "r3": [
-            {"id": "m9", "name": "Karnataka Thali", "price": 150, "veg": True, "emoji": "🍽️", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Vegetarian_thali_Karnataka_DSC0004.jpg/960px-Vegetarian_thali_Karnataka_DSC0004.jpg"},
-            {"id": "m10", "name": "Bisi Bele Bath", "price": 110, "veg": True, "emoji": "🍚", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Bisi_Bele_Bath_%28Bisibelebath%29.JPG/960px-Bisi_Bele_Bath_%28Bisibelebath%29.JPG"},
-            {"id": "m11", "name": "Ragi Mudde + Saaru", "price": 90, "veg": True, "emoji": "🍚", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/RAGI_MUDDE.JPG/960px-RAGI_MUDDE.JPG"},
+            {"id": "m9", "name": "Rusk Toast", "price": 40, "veg": True, "emoji": "🍪", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Rusk_%28Dry_Biscuit%2Ctwice_baked_bread%29.jpg/960px-Rusk_%28Dry_Biscuit%2Ctwice_baked_bread%29.jpg"},
+            {"id": "m10", "name": "Bakery Bread Rolls", "price": 50, "veg": True, "emoji": "🥐", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/IndianBakeryRolls1.jpg/960px-IndianBakeryRolls1.jpg"},
+            {"id": "m11", "name": "Nankhatai Biscuits (200g)", "price": 90, "veg": True, "emoji": "🍪", "image": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Nankhatai_biscuits.jpg"},
         ],
         "r4": [
-            {"id": "m12", "name": "Mysore Pak", "price": 120, "veg": True, "emoji": "🍬", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Mysore_pak.jpg/960px-Mysore_pak.jpg"},
+            {"id": "m12", "name": "Bhel Puri", "price": 60, "veg": True, "emoji": "🥗", "image": "https://upload.wikimedia.org/wikipedia/commons/2/22/Bhel_puri_Snack.jpg"},
             {"id": "m13", "name": "Pani Puri Plate", "price": 50, "veg": True, "emoji": "🥟", "image": "https://upload.wikimedia.org/wikipedia/commons/6/6c/Pani_puri_2.jpg"},
-            {"id": "m14", "name": "Dharwad Peda (250g)", "price": 140, "veg": True, "emoji": "🍡", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Peda_Sweet.jpg/960px-Peda_Sweet.jpg"},
+            {"id": "m14", "name": "Sev Puri", "price": 70, "veg": True, "emoji": "🍥", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/Sev_Puri_2023.jpg/960px-Sev_Puri_2023.jpg"},
         ],
     },
     "riders": [
@@ -82,8 +82,8 @@ DEFAULT_CATALOG = {
     ],
     "offers": [
         {"id": "o1", "emoji": "🔥", "title": "FLAT 50% OFF", "sub": "Up to ₹100 at Gubbi Tiffin House", "bg": "#C1442E", "restaurantId": "r1"},
-        {"id": "o2", "emoji": "🍗", "title": "Biryani Bonanza", "sub": "Flat ₹75 off at Namma Biryani Corner", "bg": "#2453A8", "restaurantId": "r2"},
-        {"id": "o3", "emoji": "🍬", "title": "Sweet Treat Deal", "sub": "Buy 1 Get 1 at Silk City Sweets", "bg": "#8E5FA3", "restaurantId": "r4"},
+        {"id": "o2", "emoji": "🍗", "title": "Biryani Bonanza", "sub": "Flat ₹75 off at Royals Food", "bg": "#2453A8", "restaurantId": "r2"},
+        {"id": "o3", "emoji": "🥟", "title": "Chaat Treat Deal", "sub": "Buy 1 Get 1 at Bangarpet Chats", "bg": "#8E5FA3", "restaurantId": "r4"},
     ],
     "settings": {
         "upiId": "7349656582@axl",
