@@ -635,6 +635,7 @@ async function loadAll(){
     DB.offers = cat.offers; DB.settings = cat.settings; DB.catalogRev = cat.catalogRev || 0;
     DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
     DB.liveRev = live.liveRev || 0;
+    markNotificationsSurfacedOnStartup();
     return;
   }catch(e){ /* no backend reachable — fall back to this device's local storage below */ }
   const cat = await backendGet('catalog');
@@ -649,6 +650,15 @@ async function loadAll(){
     DB.orders = live.orders; DB.notifications = mergeNotifications(live.notifications); DB.orderSeq = live.orderSeq;
     DB.liveRev = live.liveRev || 0;
   }
+  markNotificationsSurfacedOnStartup();
+}
+/* Everything fetched on this very first load is, by definition, "old" from a fresh page's point
+   of view — without this, a refresh would replay the toast+sound for every notification that
+   happened before the refresh, since there's no prior in-memory copy yet for mergeNotifications
+   to carry the _surfaced flag forward from. Only notifications that arrive AFTER this point
+   (via later polls) should ever auto-toast. */
+function markNotificationsSurfacedOnStartup(){
+  DB.notifications.forEach(n=>{ n._surfaced = true; });
 }
 /* Poll for changes made in OTHER tabs/devices — skipped while a form field is actively focused
    so an admin mid-typing never gets their in-progress text wiped out from under them. */
@@ -853,6 +863,8 @@ function captureLocationThenPlaceOrder(){
 
 function logout(){
   localStorage.removeItem('gubbi_customer_session');
+  localStorage.removeItem('gubbi_rider_session');
+  localStorage.removeItem('gubbi_admin_session');
   S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null,
        currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
   render();
@@ -868,16 +880,54 @@ function saveCustomerSession(){
     }));
   }catch(e){ /* localStorage unavailable (private browsing etc.) — session just won't survive a refresh */ }
 }
+/* Same idea as saveCustomerSession, for rider/admin logins — without these, refreshing the page
+   while logged in as a rider or admin dropped them straight back to a login screen. */
+function saveRiderSession(){
+  try{ localStorage.setItem('gubbi_rider_session', JSON.stringify({riderId:S.riderId})); }
+  catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
+}
+function saveAdminSession(){
+  try{ localStorage.setItem('gubbi_admin_session', JSON.stringify({adminToken:S.adminToken})); }
+  catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
+}
+/* Restores whichever role (customer/rider/admin) was last logged in on this device. Only one is
+   normally set at a time, so the first match wins. */
+function restoreSession(){
+  if(restoreCustomerSession()) return;
+  if(restoreRiderSession()) return;
+  restoreAdminSession();
+}
 function restoreCustomerSession(){
   try{
     const raw = localStorage.getItem('gubbi_customer_session');
-    if(!raw) return;
+    if(!raw) return false;
     const sess = JSON.parse(raw);
-    if(!sess || !sess.customerPhone) return;
+    if(!sess || !sess.customerPhone) return false;
     S.role='customer'; S.customerName=sess.customerName; S.customerPhone=sess.customerPhone;
     S._pendingAddress=sess._pendingAddress; S._pendingLat=sess._pendingLat; S._pendingLng=sess._pendingLng;
     S._locCaptured=sess._locCaptured;
-  }catch(e){ /* corrupted session data — stay logged out */ }
+    return true;
+  }catch(e){ return false; } // corrupted session data — stay logged out
+}
+function restoreRiderSession(){
+  try{
+    const raw = localStorage.getItem('gubbi_rider_session');
+    if(!raw) return false;
+    const sess = JSON.parse(raw);
+    if(!sess || !sess.riderId) return false;
+    S.role='rider'; S.riderId=sess.riderId; S.screen='rider-dashboard';
+    return true;
+  }catch(e){ return false; }
+}
+function restoreAdminSession(){
+  try{
+    const raw = localStorage.getItem('gubbi_admin_session');
+    if(!raw) return false;
+    const sess = JSON.parse(raw);
+    if(!sess || !sess.adminToken) return false;
+    S.role='admin'; S.adminToken=sess.adminToken; S.screen='admin-dashboard';
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ============ HELPERS ============ */
@@ -2039,7 +2089,7 @@ function screenRiderLogin(){
   <div class="content">
     <div class="card">
       <div class="field">
-        <label>Rider profile</label>
+        <label>Name</label>
         <input id="riderSearch" placeholder="Type your name, e.g. A" value="${S._riderSearch||''}" oninput="onRiderSearchInput(this.value)" autocomplete="off">
         <input type="hidden" id="riderSelect" value="${S._riderSelectedId||''}">
         <div id="riderSuggestions">${riderSuggestionsHtml(S._riderSearch||'')}</div>
@@ -2050,10 +2100,11 @@ function screenRiderLogin(){
   </div>`;
 }
 /* Filters riders whose name STARTS WITH whatever's typed so far (e.g. "A" -> Ajay, Akash, Arun)
-   instead of showing every rider in one long dropdown. */
+   — shows nothing until the rider starts typing, instead of listing every rider up front. */
 function riderSuggestionsHtml(query){
   const q = query.trim().toLowerCase();
-  const matches = q ? DB.riders.filter(r=>r.name.toLowerCase().startsWith(q)) : DB.riders;
+  if(!q) return '';
+  const matches = DB.riders.filter(r=>r.name.toLowerCase().startsWith(q));
   if(matches.length===0) return `<div class="meta" style="font-size:12px;color:var(--muted);margin-top:6px;">No rider name starts with "${query}".</div>`;
   return `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:180px;overflow-y:auto;">
     ${matches.map(r=>`<div class="cat-chip ${S._riderSelectedId===r.id?'active':''}" style="width:100%;text-align:left;box-sizing:border-box;" onclick="selectRiderSuggestion('${r.id}')">${r.name}</div>`).join('')}
@@ -2092,6 +2143,7 @@ async function doRiderLogin(){
     if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
     S.role='rider';
     S.riderId = riderId;
+    saveRiderSession();
     go('rider-dashboard');
     return;
   }catch(e){ /* no backend reachable — fall back below */ }
@@ -2099,11 +2151,13 @@ async function doRiderLogin(){
   if(!rider || rider.password !== password){ showToast('Incorrect password.'); return; }
   S.role='rider';
   S.riderId = riderId;
+  saveRiderSession();
   go('rider-dashboard');
 }
 
 function screenRiderDashboard(){
   const me = riderById(S.riderId);
+  if(!me) return `${topbarLogged()}<div class="content"><div class="empty"><div class="big">🛵</div>Loading your dashboard…</div></div>`;
   const pct = me.commissionPercent||0;
   const available = DB.orders.filter(o=>o.status==='Placed' && o.riderApproved);
   const pendingApproval = DB.orders.filter(o=>o.status==='Placed' && !o.riderApproved);
@@ -2250,6 +2304,7 @@ async function doAdminLogin(){
       const data = await res.json();
       S.adminToken = data.token;
       S.role='admin';
+      saveAdminSession();
       go('admin-dashboard');
       return;
     }
@@ -2805,7 +2860,7 @@ document.addEventListener('click', function(e){
 });
 
 async function init(){
-  restoreCustomerSession(); // keeps a logged-in customer logged in across page refreshes
+  restoreSession(); // keeps a logged-in customer/rider/admin logged in across page refreshes
   render(); // show something immediately
   await loadAll(); // pull shared restaurants/orders/notifications from the backend
   render();

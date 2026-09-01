@@ -249,13 +249,12 @@ def get_catalog_public():
 @app.get("/api/live")
 def get_live_public():
     meta = _get_live_meta()
-    orders_snap = (
-        _orders_collection()
-        .order_by("_seq", direction=firestore.Query.DESCENDING)
-        .limit(MAX_LIVE_ORDERS_RETURNED)
-        .stream()
-    )
-    orders = [d.to_dict() for d in orders_snap]
+    # Fetched WITHOUT order_by: Firestore silently excludes any document missing the sort field
+    # from an order_by() query, which would hide orders from riders/customers if one ever lacked
+    # '_seq' — sorting/limiting here in Python guarantees every order document is always returned.
+    orders = [d.to_dict() for d in _orders_collection().stream()]
+    orders.sort(key=lambda o: o.get("_seq", 0), reverse=True)
+    orders = orders[:MAX_LIVE_ORDERS_RETURNED]
     return jsonify(
         orders=orders,
         notifications=meta.get("notifications", []),
