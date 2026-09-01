@@ -458,6 +458,7 @@ def create_order():
         "riderApproved": is_cod,
         "riderId": None,
         "createdAt": _time_label(),
+        "createdDate": datetime.datetime.now(IST).strftime("%Y-%m-%d"),  # for the admin's year/month/day order browser
         "paymentMethod": "Cash on Delivery" if is_cod else "UPI (PhonePe / Paytm / GPay)",
         "custLat": cust_lat if (loc_shared and cust_lat is not None) else FALLBACK_LAT,
         "custLng": cust_lng if (loc_shared and cust_lng is not None) else FALLBACK_LNG,
