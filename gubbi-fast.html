@@ -2161,7 +2161,8 @@ function screenRiderDashboard(){
   if(!me) return `${topbarLogged()}<div class="content"><div class="empty"><div class="big">🛵</div>Loading your dashboard…</div></div>`;
   const pct = me.commissionPercent||0;
   const available = DB.orders.filter(o=>o.status==='Placed' && o.riderApproved);
-  const pendingApproval = DB.orders.filter(o=>o.status==='Placed' && !o.riderApproved);
+  const pendingApproval = DB.orders.filter(o=>
+    (o.status==='Placed' && !o.riderApproved) || o.status==='AwaitingPayment' || o.status==='PaymentClaimed');
   const mine = DB.orders.filter(o=>o.riderId===S.riderId && o.status!=='Delivered');
   const delivered = DB.orders.filter(o=>o.riderId===S.riderId && o.status==='Delivered');
   const totalEarnings = delivered.reduce((s,o)=>s+Math.round(o.total*pct/100),0);
@@ -2262,6 +2263,9 @@ function screenRiderDashboard(){
     <div class="section-title">Waiting for admin confirmation</div>
     ${pendingApproval.map(o=>{
       const r = restaurantById(o.restaurantId);
+      const waitMsg = o.status==='AwaitingPayment' ? '⏳ Awaiting customer payment'
+        : o.status==='PaymentClaimed' ? '💳 Payment claimed — waiting for admin verification'
+        : '🕐 Waiting for admin confirmation — you\'ll be notified when you can accept it';
       return `
       <div class="order-card">
         <div class="order-top">
@@ -2275,7 +2279,7 @@ function screenRiderDashboard(){
         <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
           ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
         </div>
-        <div class="badge" style="background:#FDF1DC;color:var(--marigold-dark);">🕐 Waiting for admin confirmation — you'll be notified when you can accept it</div>
+        <div class="badge" style="background:#FDF1DC;color:var(--marigold-dark);">${waitMsg}</div>
       </div>`;
     }).join('')}
     ` : ''}
