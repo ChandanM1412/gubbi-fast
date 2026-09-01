@@ -2770,7 +2770,7 @@ function topbarLogged(){
     <div class="brand" onclick="go('customer-restaurants')"><div class="mark">🛵</div><div><div class="brand-name" style="font-size:16px;">GUBBI FAST</div><div class="brand-tag">Food · Medical · Groceries · More</div></div></div>
     <div class="topbar-tagline">Gubbi gets fed <span class="accent">fast.</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <div class="chip" style="position:relative;" onclick="toggleNotifPanel()">🔔${unread>0?`<span class="notif-dot">${unread}</span>`:''}</div>
+      ${S.role?`<div class="chip" style="position:relative;" onclick="toggleNotifPanel()">🔔${unread>0?`<span class="notif-dot">${unread}</span>`:''}</div>`:''}
       ${showLogout?`<div class="chip" onclick="logout()">🚪 Logout</div>`:''}
     </div>
     ${S.notifOpen?`
