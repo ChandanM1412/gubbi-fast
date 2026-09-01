@@ -446,11 +446,10 @@ def create_order():
         "customerPhone": customer_phone,
         "address": address,
         "status": "Placed" if is_cod else "AwaitingPayment",
-        # Riders can only accept once an admin has explicitly approved the order (see
-        # /api/orders/<id>/approve) — for COD that's a manual admin click; for UPI it happens
-        # automatically the moment the admin confirms the payment, since that's already a
-        # manual admin review of the same order.
-        "riderApproved": False,
+        # UPI orders can only be accepted by riders once the admin confirms the payment (see
+        # /api/payments/<id>/confirm) — COD has no such upfront payment to verify, so it's
+        # immediately acceptable.
+        "riderApproved": is_cod,
         "riderId": None,
         "createdAt": _time_label(),
         "paymentMethod": "Cash on Delivery" if is_cod else "UPI (PhonePe / Paytm / GPay)",
@@ -462,7 +461,7 @@ def create_order():
     if is_cod:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} placed at {restaurant['name']} — pay ₹{total} cash on delivery.", "🧾")
         _notify(notifications, "admin", None, f"New order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} (COD).", "🆕")
-        _notify(notifications, "all-riders", None, f"🕐 New order #{order_id} placed near {restaurant.get('area','')} — waiting for admin confirmation.", "🕐")
+        _notify(notifications, "all-riders", None, f"New order #{order_id} available for pickup near {restaurant.get('area','')}.", "📦")
     else:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} created at {restaurant['name']} — complete UPI payment to confirm it.", "🧾")
         _notify(notifications, "admin", None, f"Order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} — awaiting payment.", "⏳")
@@ -516,25 +515,6 @@ def reject_payment(order_id):
         order["status"] = "PaymentRejected"
         _notify(notifications, "customer", order.get("customerPhone"),
                 f"We couldn't verify your payment for order #{order['id']}. Please call Gubbi Fast on {admin_phone} or place the order again.", "⚠️")
-
-    return _run_order_mutation(order_id, mutate)
-
-
-@app.post("/api/orders/<order_id>/approve")
-def approve_order_for_riders(order_id):
-    """Admin-only gate for COD orders (UPI orders auto-approve when payment is confirmed above) —
-    riders see the order with a 'waiting for admin confirmation' message and no Accept button
-    until this fires."""
-    if not require_admin():
-        return jsonify(error="Unauthorized"), 401
-
-    def mutate(order, notifications):
-        if order.get("status") != "Placed":
-            raise ValueError("order is not in a placed state")
-        if order.get("riderApproved"):
-            raise ValueError("order is already approved")
-        order["riderApproved"] = True
-        _notify(notifications, "all-riders", None, f"✅ Admin approved order #{order['id']} — you can accept it now!", "✅")
 
     return _run_order_mutation(order_id, mutate)
 

@@ -992,7 +992,7 @@ function placeOrderLocal(isCod){
     customerPhone: S.customerPhone,
     address: S._pendingAddress || 'Home',
     status: isCod ? 'Placed' : 'AwaitingPayment',
-    riderApproved: false, // riders can't accept until an admin approves — see approveOrderForRiders()
+    riderApproved: isCod, // UPI orders need the admin to confirm payment first; COD is immediate
     riderId: null,
     createdAt: timeNow(),
     paymentMethod: isCod ? 'Cash on Delivery' : PAYMENT_METHOD,
@@ -1007,7 +1007,7 @@ function placeOrderLocal(isCod){
   if(isCod){
     pushNotification('customer', S.customerPhone, `Order #${order.id} placed at ${rest.name} — pay ${fmt(order.total)} cash on delivery.`, '🧾');
     pushNotification('admin', null, `New order #${order.id} from ${S.customerName} at ${rest.name} — ${fmt(order.total)} (COD).`, '🆕');
-    pushNotification('all-riders', null, `🕐 New order #${order.id} placed near ${rest.area} — waiting for admin confirmation.`, '🕐');
+    pushNotification('all-riders', null, `New order #${order.id} available for pickup near ${rest.area}.`, '📦');
     showToast('Order placed! Restaurant is preparing it.');
     saveLive();
     S._placingOrder = false;
@@ -1084,25 +1084,6 @@ async function rejectPayment(orderId){
 function confirmClearAllOrders(){
   if(!confirm(`Delete all ${DB.orders.length} order(s) and their notifications? This can't be undone.`)) return;
   clearAllOrders();
-}
-/* Admin-only gate for COD orders before riders can accept them (UPI orders auto-approve when
-   payment is confirmed above) — pairs with the 'waiting for admin confirmation' message shown
-   to riders until this fires. */
-async function approveOrderForRiders(orderId){
-  try{
-    const {ok, data} = await apiCall(`/api/orders/${orderId}/approve`, jsonPost({}, authHeaders()));
-    if(!ok){ showToast((data&&data.error)||'Could not approve this order.'); return; }
-    await pollShared();
-    showToast('Order approved for riders.');
-    return;
-  }catch(e){ /* no backend reachable — fall back below */ }
-  const o = DB.orders.find(x=>x.id===orderId);
-  if(!o) return;
-  o.riderApproved = true;
-  pushNotification('all-riders', null, `✅ Admin approved order #${o.id} — you can accept it now!`, '✅');
-  saveLive();
-  showToast('Order approved for riders.');
-  render();
 }
 async function clearAllOrders(){
   try{
@@ -2162,8 +2143,7 @@ function screenRiderDashboard(){
   if(!me) return `${topbarLogged()}<div class="content"><div class="empty"><div class="big">🛵</div>Loading your dashboard…</div></div>`;
   const pct = me.commissionPercent||0;
   const available = DB.orders.filter(o=>o.status==='Placed' && o.riderApproved);
-  const pendingApproval = DB.orders.filter(o=>
-    (o.status==='Placed' && !o.riderApproved) || o.status==='AwaitingPayment' || o.status==='PaymentClaimed');
+  const pendingApproval = DB.orders.filter(o=>o.status==='AwaitingPayment' || o.status==='PaymentClaimed');
   const mine = DB.orders.filter(o=>o.riderId===S.riderId && o.status!=='Delivered');
   const delivered = DB.orders.filter(o=>o.riderId===S.riderId && o.status==='Delivered');
   const totalEarnings = delivered.reduce((s,o)=>s+Math.round(o.total*pct/100),0);
@@ -2261,12 +2241,11 @@ function screenRiderDashboard(){
     }).join('')}
 
     ${pendingApproval.length>0?`
-    <div class="section-title">Waiting for admin confirmation</div>
+    <div class="section-title">Waiting for payment verification</div>
     ${pendingApproval.map(o=>{
       const r = restaurantById(o.restaurantId);
       const waitMsg = o.status==='AwaitingPayment' ? '⏳ Awaiting customer payment'
-        : o.status==='PaymentClaimed' ? '💳 Payment claimed — waiting for admin verification'
-        : '🕐 Waiting for admin confirmation — you\'ll be notified when you can accept it';
+        : '💳 Payment claimed — waiting for admin verification';
       return `
       <div class="order-card">
         <div class="order-top">
@@ -2744,10 +2723,6 @@ function adminOrders(){
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-green" style="padding:9px 14px;" onclick="confirmPaymentReceived('${o.id}')">✅ Confirm payment received</button>
         <button class="btn btn-outline" style="padding:9px 14px;border-color:var(--chili);color:var(--chili);" onclick="rejectPayment('${o.id}')">Not received</button>
-      </div>`:''}
-      ${(o.status==='Placed' && !o.riderApproved)?`
-      <div style="margin-top:10px;">
-        <button class="btn btn-green" style="padding:9px 14px;" onclick="approveOrderForRiders('${o.id}')">✅ Approve for riders</button>
       </div>`:''}
     </div>`;
   }).join('');
