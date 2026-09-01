@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gubbi Fast — essentials, fast</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231C1B19'/%3E%3Cg transform='rotate(-6 32 32)'%3E%3Crect x='10' y='10' width='44' height='44' rx='12' fill='%23F2A93B'/%3E%3Ctext x='32' y='40' font-size='28' text-anchor='middle'%3E%F0%9F%9B%B5%3C/text%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231C1B19'/%3E%3Cg transform='rotate(-6 32 32)'%3E%3Crect x='10' y='10' width='44' height='44' rx='12' fill='%23F2A93B'/%3E%3Ctext x='32' y='40' font-size='28' text-anchor='middle'%3E%F0%9F%9B%B5%3C/text%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -2016,14 +2018,44 @@ function screenRiderLogin(){
     <div class="card">
       <div class="field">
         <label>Rider profile</label>
-        <select id="riderSelect">
-          ${DB.riders.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
-        </select>
+        <input id="riderSearch" placeholder="Type your name, e.g. A" value="${S._riderSearch||''}" oninput="onRiderSearchInput(this.value)" autocomplete="off">
+        <input type="hidden" id="riderSelect" value="${S._riderSelectedId||''}">
+        <div id="riderSuggestions">${riderSuggestionsHtml(S._riderSearch||'')}</div>
       </div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input id="riderPassword" type="password" placeholder="Ask admin for your password">${pwEyeBtn()}</div></div>
       <button class="btn btn-green" onclick="doRiderLogin()">Go online</button>
     </div>
   </div>`;
+}
+/* Filters riders whose name STARTS WITH whatever's typed so far (e.g. "A" -> Ajay, Akash, Arun)
+   instead of showing every rider in one long dropdown. */
+function riderSuggestionsHtml(query){
+  const q = query.trim().toLowerCase();
+  const matches = q ? DB.riders.filter(r=>r.name.toLowerCase().startsWith(q)) : DB.riders;
+  if(matches.length===0) return `<div class="meta" style="font-size:12px;color:var(--muted);margin-top:6px;">No rider name starts with "${query}".</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:180px;overflow-y:auto;">
+    ${matches.map(r=>`<div class="cat-chip ${S._riderSelectedId===r.id?'active':''}" style="width:100%;text-align:left;box-sizing:border-box;" onclick="selectRiderSuggestion('${r.id}')">${r.name}</div>`).join('')}
+  </div>`;
+}
+function onRiderSearchInput(v){
+  S._riderSearch = v;
+  S._riderSelectedId = null;
+  const hiddenEl = document.getElementById('riderSelect');
+  if(hiddenEl) hiddenEl.value = '';
+  const el = document.getElementById('riderSuggestions');
+  if(el) el.innerHTML = riderSuggestionsHtml(v);
+}
+function selectRiderSuggestion(id){
+  const rider = riderById(id);
+  if(!rider) return;
+  S._riderSelectedId = id;
+  S._riderSearch = rider.name;
+  const searchEl = document.getElementById('riderSearch');
+  if(searchEl) searchEl.value = rider.name;
+  const hiddenEl = document.getElementById('riderSelect');
+  if(hiddenEl) hiddenEl.value = id;
+  const el = document.getElementById('riderSuggestions');
+  if(el) el.innerHTML = riderSuggestionsHtml(rider.name);
 }
 /* Verifies against the backend (password hash checked server-side, never shipped to the
    browser) when one is deployed. Falls back to comparing the plaintext password stored on this
@@ -2031,7 +2063,7 @@ function screenRiderLogin(){
 async function doRiderLogin(){
   const riderId = document.getElementById('riderSelect').value;
   const password = document.getElementById('riderPassword').value;
-  if(!riderId){ showToast('Add a rider from Admin first.'); return; }
+  if(!riderId){ showToast('Type your name and pick your profile from the list.'); return; }
   if(!password){ showToast('Enter your password.'); return; }
   try{
     const {ok, data} = await apiCall('/api/riders/login', jsonPost({riderId, password}));

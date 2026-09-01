@@ -144,6 +144,32 @@ def _notify(notifications, audience, target_id, message, icon):
     })
 
 
+# All orders/notifications live as two array fields on ONE Firestore document ('live'), read and
+# rewritten in full on every single action. That's fine at low volume, but Firestore documents
+# are capped at 1MB and every poll/action pays for the whole document's read+write cost — at the
+# ~6-7k orders/notifications scale this WILL eventually hit that limit or get slow/expensive.
+# This prunes old FINISHED orders (never anything still in progress) and old notifications so the
+# document stays small indefinitely. This is a stopgap, not a real fix: the durable fix is moving
+# orders to their own Firestore subcollection (one document per order) so reads/writes are
+# per-order instead of whole-history — flag this to the user before order volume gets there.
+MAX_STORED_ORDERS = 400
+MAX_STORED_NOTIFICATIONS = 300
+_FINISHED_STATUSES = ("Delivered", "PaymentRejected")
+
+
+def _prune_live(data):
+    orders = data.get("orders", [])
+    if len(orders) > MAX_STORED_ORDERS:
+        active = [o for o in orders if o.get("status") not in _FINISHED_STATUSES]
+        finished = [o for o in orders if o.get("status") in _FINISHED_STATUSES]
+        keep_finished = max(0, MAX_STORED_ORDERS - len(active))
+        data["orders"] = active + finished[:keep_finished]
+    notifications = data.get("notifications", [])
+    if len(notifications) > MAX_STORED_NOTIFICATIONS:
+        data["notifications"] = notifications[:MAX_STORED_NOTIFICATIONS]
+    return data
+
+
 def _mutate_order(order_id, mutate_fn):
     """Read-modify-write the shared 'live' document, since orders are stored as one array field."""
     live_ref = get_db().collection("gubbiFast").document("live")
@@ -160,7 +186,7 @@ def _mutate_order(order_id, mutate_fn):
     data["orders"] = orders
     data["notifications"] = notifications
     data["liveRev"] = (data.get("liveRev", 0) or 0) + 1
-    live_ref.set(data)
+    live_ref.set(_prune_live(data))
     return order, None
 
 
@@ -427,7 +453,7 @@ def create_order():
     live_data["notifications"] = notifications
     live_data["orderSeq"] = order_seq + 1
     live_data["liveRev"] = (live_data.get("liveRev", 0) or 0) + 1
-    live_ref.set(live_data)
+    live_ref.set(_prune_live(live_data))
     return jsonify(ok=True, order=order)
 
 
