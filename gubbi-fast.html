@@ -1552,19 +1552,15 @@ function bottomNav(active){
   const tabs = [
     {id:'customer-restaurants', icon:'🏠', label:'Home'},
     {id:'customer-offers', icon:'🎁', label:'Offers'},
-    {id:'customer-notifications', icon:'🔔', label:'Notifications', badge:unreadNotifCount()},
+    {id:'customer-orders', icon:'📦', label:'Orders'},
     {id:'customer-account', icon:'👤', label:'Account'},
   ];
   return `<div class="bottom-nav">
-    ${tabs.map(t=>`<div class="bn-item ${active===t.id?'active':''}" onclick="${t.id==='customer-notifications'?'openNotificationsTab()':`go('${t.id}')`}">
-      <div class="bn-icon">${t.icon}${t.badge?`<span class="notif-dot" style="top:-6px;right:-10px;">${t.badge}</span>`:''}</div>
+    ${tabs.map(t=>`<div class="bn-item ${active===t.id?'active':''}" onclick="go('${t.id}')">
+      <div class="bn-icon">${t.icon}</div>
       <div class="bn-label">${t.label}</div>
     </div>`).join('')}
   </div>`;
-}
-function openNotificationsTab(){
-  mySessionNotifications().forEach(n=>{ n.read=true; n._surfaced=true; });
-  go('customer-notifications');
 }
 /* Floating WhatsApp/Instagram contact buttons — both links editable in Admin > Payments. */
 function floatingSocial(){
@@ -2793,7 +2789,7 @@ function topbarLogged(){
 }
 
 /* ============ MAIN RENDER ============ */
-const MAIN_TABS = ['customer-restaurants','customer-offers','customer-notifications','customer-account'];
+const MAIN_TABS = ['customer-restaurants','customer-offers','customer-orders','customer-account'];
 function render(){
   const app = document.getElementById('app');
   let html = '';
