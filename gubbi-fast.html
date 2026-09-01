@@ -966,11 +966,12 @@ async function placeOrder(){
   };
   try{
     const {ok, data} = await apiCall('/api/orders', jsonPost(body));
-    if(!ok){ showToast((data&&data.error)||'Could not place the order.'); return; }
+    if(!ok){ showToast((data&&data.error)||'Could not place the order.'); S._placingOrder = false; return; }
     S.cart = {};
     S.pendingOrderId = data.order.id;
     await pollShared();
     showToast(isCod?'Order placed! Restaurant is preparing it.':'Order created — complete payment to confirm.');
+    S._placingOrder = false;
     go(isCod?'customer-orders':'customer-payment');
     return;
   }catch(e){ /* no backend reachable — fall back to client-only demo mode below */ }
@@ -1009,11 +1010,13 @@ function placeOrderLocal(isCod){
     pushNotification('all-riders', null, `🕐 New order #${order.id} placed near ${rest.area} — waiting for admin confirmation.`, '🕐');
     showToast('Order placed! Restaurant is preparing it.');
     saveLive();
+    S._placingOrder = false;
     go('customer-orders');
   } else {
     pushNotification('customer', S.customerPhone, `Order #${order.id} created at ${rest.name} — complete UPI payment to confirm it.`, '🧾');
     pushNotification('admin', null, `Order #${order.id} from ${S.customerName} at ${rest.name} — ${fmt(order.total)} — awaiting payment.`, '⏳');
     showToast('Order created — complete payment to confirm.');
+    S._placingOrder = false;
     go('customer-payment');
   }
 }
@@ -1747,7 +1750,7 @@ function screenCustomerCart(){
         <div class="veg-chip ${S.paymentChoice==='cod'?'active':''}" onclick="setPaymentChoice('cod')">💵 Cash on delivery</div>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="confirmAndPlace()">${S.paymentChoice==='cod'?'Place order':'Continue to pay'} · ${fmt(cartTotal())}</button>`}
+    <button class="btn btn-primary" ${S._placingOrder?'disabled':''} onclick="confirmAndPlace()">${S._placingOrder?'Placing order…':(S.paymentChoice==='cod'?'Place order':'Continue to pay')+' · '+fmt(cartTotal())}</button>`}
   </div>`;
 }
 function setPaymentChoice(v){ S.paymentChoice = v; render(); }
@@ -1857,11 +1860,13 @@ function confirmPickedLocation(){
    final "place order" tap, matching real food-delivery apps (checkout gates the login, not
    browsing). */
 function confirmAndPlace(){
+  if(S._placingOrder) return; // ignores a rapid double-tap that would otherwise place the same order twice
   const addrEl = document.getElementById('addrEdit');
   if(addrEl) S._pendingAddress = addrEl.value.trim() || S._pendingAddress;
   saveCustomerSession();
   if(!isWithinOrderHours()){ showToast(`⏰ Orders are accepted only between ${ORDER_HOURS_LABEL}. Please try again during those hours.`); return; }
   if(!S.customerPhone){ go('customer-checkout-login'); return; }
+  S._placingOrder = true;
   captureLocationThenPlaceOrder();
 }
 function screenCustomerCheckoutLogin(){
