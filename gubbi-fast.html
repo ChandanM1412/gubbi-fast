@@ -2051,6 +2051,7 @@ function screenCustomerOrders(){
         ${orderItemThumbs(o)}
         <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
           ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
           <span class="badge" style="background:var(--green-light);color:var(--green);">💵 ${o.paymentMethod}</span>
           <span class="badge" style="background:${o.locShared?'#E6EEFB':'var(--paper)'};color:${o.locShared?'#2453A8':'var(--muted)'};">${o.locShared?'📍 Live location shared':'📍 '+o.address}</span>
