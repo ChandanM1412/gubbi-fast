@@ -14,6 +14,7 @@ of the box; override them on your hosting platform for a real deployment):
                                   (required for catalog/order endpoints, NOT for admin login)
 See README.md for how to obtain/set these.
 """
+import datetime
 import json
 import os
 import random
@@ -132,8 +133,13 @@ def require_admin():
         return None
 
 
+# IST has no DST, so a fixed UTC+5:30 offset is always correct — avoids depending on the
+# 'tzdata' package (not guaranteed present in every Python runtime) that zoneinfo would need.
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
 def _time_label():
-    return time.strftime("%I:%M %p")
+    return datetime.datetime.now(IST).strftime("%I:%M %p")
 
 
 def _notify(notifications, audience, target_id, message, icon):

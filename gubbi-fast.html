@@ -449,13 +449,18 @@ function getWhatsAppContactUrl(){
 }
 // Fallback delivery point (central Gubbi) used when the browser denies/lacks geolocation
 const FALLBACK_LOC = {lat:13.3086, lng:76.9366};
-// Orders are only accepted 7:00 AM – 10:00 PM local time (restaurants/riders aren't staffed outside this window)
+// Orders are only accepted 7:00 AM – 10:00 PM IST (restaurants/riders aren't staffed outside this window)
 const ORDER_HOURS = {openHour:7, closeHour:22};
 const ORDER_HOURS_LABEL = '7:00 AM – 10:00 PM';
 const ENFORCE_ORDER_HOURS = true; // flip to false to temporarily bypass the checkout restriction for testing
+/* Always reads the current hour in IST specifically — using the visitor's device timezone here
+   would apply the wrong cutoff for anyone whose phone/PC isn't set to Indian time. */
+function getISTHour(){
+  return Number(new Date().toLocaleString('en-US', {hour:'numeric', hourCycle:'h23', timeZone:'Asia/Kolkata'}));
+}
 function isWithinOrderHours(){
   if(!ENFORCE_ORDER_HOURS) return true;
-  const h = new Date().getHours();
+  const h = getISTHour();
   return h >= ORDER_HOURS.openHour && h < ORDER_HOURS.closeHour;
 }
 function mapsLink(lat,lng){ return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
@@ -942,8 +947,8 @@ function cartTotal(){
 }
 function fmt(n){ return '₹'+n; }
 function timeNow(){
-  const d = new Date();
-  return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  // Explicit timeZone so every visitor sees the same IST time regardless of their device's own timezone.
+  return new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', timeZone:'Asia/Kolkata'});
 }
 function restaurantById(id){ return DB.restaurants.find(r=>r.id===id); }
 function riderById(id){ return DB.riders.find(r=>r.id===id); }
