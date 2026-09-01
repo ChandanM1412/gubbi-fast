@@ -148,45 +148,49 @@ def _notify(notifications, audience, target_id, message, icon):
 # rewritten in full on every single action. That's fine at low volume, but Firestore documents
 # are capped at 1MB and every poll/action pays for the whole document's read+write cost — at the
 # ~6-7k orders/notifications scale this WILL eventually hit that limit or get slow/expensive.
-# This prunes old FINISHED orders (never anything still in progress) and old notifications so the
-# document stays small indefinitely. This is a stopgap, not a real fix: the durable fix is moving
-# orders to their own Firestore subcollection (one document per order) so reads/writes are
-# per-order instead of whole-history — flag this to the user before order volume gets there.
-MAX_STORED_ORDERS = 400
+# FIX: orders now live as individual documents in a Firestore subcollection
+# ('gubbiFast/live/orders/{orderId}') instead of one giant array field — each order
+# mutation reads/writes only its own tiny document, so there's no 1MB ceiling and no
+# whole-history read/write cost, no matter how many thousands of orders accumulate.
+# The 'live' document itself now only holds notifications + counters, which stays small
+# (notifications are still capped below since they're the one remaining array field).
+MAX_LIVE_ORDERS_RETURNED = 500  # how many recent orders GET /api/live returns to the frontend
 MAX_STORED_NOTIFICATIONS = 300
 _FINISHED_STATUSES = ("Delivered", "PaymentRejected")
 
 
-def _prune_live(data):
-    orders = data.get("orders", [])
-    if len(orders) > MAX_STORED_ORDERS:
-        active = [o for o in orders if o.get("status") not in _FINISHED_STATUSES]
-        finished = [o for o in orders if o.get("status") in _FINISHED_STATUSES]
-        keep_finished = max(0, MAX_STORED_ORDERS - len(active))
-        data["orders"] = active + finished[:keep_finished]
-    notifications = data.get("notifications", [])
-    if len(notifications) > MAX_STORED_NOTIFICATIONS:
-        data["notifications"] = notifications[:MAX_STORED_NOTIFICATIONS]
+def _orders_collection():
+    return get_db().collection("gubbiFast").document("live").collection("orders")
+
+
+def _live_meta_ref():
+    return get_db().collection("gubbiFast").document("live")
+
+
+def _get_live_meta():
+    snap = _live_meta_ref().get()
+    if snap.exists:
+        return snap.to_dict()
+    data = {"notifications": [], "orderSeq": 1001, "liveRev": 0}
+    _live_meta_ref().set(data)
     return data
 
 
 def _mutate_order(order_id, mutate_fn):
-    """Read-modify-write the shared 'live' document, since orders are stored as one array field."""
-    live_ref = get_db().collection("gubbiFast").document("live")
-    snap = live_ref.get()
-    if not snap.exists:
-        return None, "no live data yet"
-    data = snap.to_dict()
-    orders = data.get("orders", [])
-    notifications = data.get("notifications", [])
-    order = next((o for o in orders if o.get("id") == order_id), None)
-    if not order:
+    """Read-modify-write just ONE order document plus the small notifications/rev doc —
+    never the full order history."""
+    order_ref = _orders_collection().document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
         return None, "order not found"
+    order = order_snap.to_dict()
+    meta = _get_live_meta()
+    notifications = meta.get("notifications", [])
     mutate_fn(order, notifications)
-    data["orders"] = orders
-    data["notifications"] = notifications
-    data["liveRev"] = (data.get("liveRev", 0) or 0) + 1
-    live_ref.set(_prune_live(data))
+    order_ref.set(order)
+    meta["notifications"] = notifications[:MAX_STORED_NOTIFICATIONS]
+    meta["liveRev"] = (meta.get("liveRev", 0) or 0) + 1
+    _live_meta_ref().set(meta)
     return order, None
 
 
@@ -244,13 +248,20 @@ def get_catalog_public():
 
 @app.get("/api/live")
 def get_live_public():
-    live_ref = get_db().collection("gubbiFast").document("live")
-    snap = live_ref.get()
-    if snap.exists:
-        return jsonify(snap.to_dict())
-    data = {"orders": [], "notifications": [], "orderSeq": 1001, "liveRev": 0}
-    live_ref.set(data)
-    return jsonify(data)
+    meta = _get_live_meta()
+    orders_snap = (
+        _orders_collection()
+        .order_by("_seq", direction=firestore.Query.DESCENDING)
+        .limit(MAX_LIVE_ORDERS_RETURNED)
+        .stream()
+    )
+    orders = [d.to_dict() for d in orders_snap]
+    return jsonify(
+        orders=orders,
+        notifications=meta.get("notifications", []),
+        orderSeq=meta.get("orderSeq", 1001),
+        liveRev=meta.get("liveRev", 0),
+    )
 
 
 # ============ ADMIN AUTH ============
@@ -298,13 +309,19 @@ def change_admin_password():
 def clear_orders():
     if not require_admin():
         return jsonify(error="Unauthorized"), 401
-    live_ref = get_db().collection("gubbiFast").document("live")
-    snap = live_ref.get()
-    data = snap.to_dict() if snap.exists else {}
-    data["orders"] = []
-    data["notifications"] = []
-    data["liveRev"] = (data.get("liveRev", 0) or 0) + 1
-    live_ref.set(data)
+    db = get_db()
+    docs = list(_orders_collection().stream())
+    batch = db.batch()
+    for i, d in enumerate(docs):
+        batch.delete(d.reference)
+        if (i + 1) % 400 == 0:  # stay under Firestore's 500-write batch limit
+            batch.commit()
+            batch = db.batch()
+    batch.commit()
+    meta = _get_live_meta()
+    meta["notifications"] = []
+    meta["liveRev"] = (meta.get("liveRev", 0) or 0) + 1
+    _live_meta_ref().set(meta)
     return jsonify(ok=True)
 
 
@@ -417,13 +434,12 @@ def create_order():
     if not order_items:
         return jsonify(error="cart has no valid items"), 400
 
-    live_ref = get_db().collection("gubbiFast").document("live")
-    live_snap = live_ref.get()
-    live_data = live_snap.to_dict() if live_snap.exists else {"orders": [], "notifications": [], "orderSeq": 1001}
-    order_seq = live_data.get("orderSeq", 1001)
+    meta = _get_live_meta()
+    order_seq = meta.get("orderSeq", 1001)
     order_id = f"GF{order_seq}"
     order = {
         "id": order_id,
+        "_seq": order_seq,
         "restaurantId": restaurant_id,
         "items": order_items,
         "total": total,
@@ -431,6 +447,11 @@ def create_order():
         "customerPhone": customer_phone,
         "address": address,
         "status": "Placed" if is_cod else "AwaitingPayment",
+        # Riders can only accept once an admin has explicitly approved the order (see
+        # /api/orders/<id>/approve) — for COD that's a manual admin click; for UPI it happens
+        # automatically the moment the admin confirms the payment, since that's already a
+        # manual admin review of the same order.
+        "riderApproved": False,
         "riderId": None,
         "createdAt": _time_label(),
         "paymentMethod": "Cash on Delivery" if is_cod else "UPI (PhonePe / Paytm / GPay)",
@@ -438,22 +459,20 @@ def create_order():
         "custLng": cust_lng if (loc_shared and cust_lng is not None) else FALLBACK_LNG,
         "locShared": loc_shared,
     }
-    orders = live_data.get("orders", [])
-    orders.insert(0, order)
-    notifications = live_data.get("notifications", [])
+    notifications = meta.get("notifications", [])
     if is_cod:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} placed at {restaurant['name']} — pay ₹{total} cash on delivery.", "🧾")
         _notify(notifications, "admin", None, f"New order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} (COD).", "🆕")
-        _notify(notifications, "all-riders", None, f"New order #{order_id} available for pickup near {restaurant.get('area','')}.", "📦")
+        _notify(notifications, "all-riders", None, f"🕐 New order #{order_id} placed near {restaurant.get('area','')} — waiting for admin confirmation.", "🕐")
     else:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} created at {restaurant['name']} — complete UPI payment to confirm it.", "🧾")
         _notify(notifications, "admin", None, f"Order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} — awaiting payment.", "⏳")
 
-    live_data["orders"] = orders
-    live_data["notifications"] = notifications
-    live_data["orderSeq"] = order_seq + 1
-    live_data["liveRev"] = (live_data.get("liveRev", 0) or 0) + 1
-    live_ref.set(_prune_live(live_data))
+    _orders_collection().document(order_id).set(order)
+    meta["notifications"] = notifications[:MAX_STORED_NOTIFICATIONS]
+    meta["orderSeq"] = order_seq + 1
+    meta["liveRev"] = (meta.get("liveRev", 0) or 0) + 1
+    _live_meta_ref().set(meta)
     return jsonify(ok=True, order=order)
 
 
@@ -480,9 +499,10 @@ def confirm_payment(order_id):
 
     def mutate(order, notifications):
         order["status"] = "Placed"
+        order["riderApproved"] = True  # admin already reviewed this order to confirm the payment
         _notify(notifications, "customer", order.get("customerPhone"),
                 f"Payment confirmed for order #{order['id']}. Your food is being prepared!", "✅")
-        _notify(notifications, "all-riders", None, f"New order #{order['id']} available for pickup.", "📦")
+        _notify(notifications, "all-riders", None, f"✅ Order #{order['id']} approved and available for pickup.", "📦")
 
     return _run_order_mutation(order_id, mutate)
 
@@ -501,6 +521,25 @@ def reject_payment(order_id):
     return _run_order_mutation(order_id, mutate)
 
 
+@app.post("/api/orders/<order_id>/approve")
+def approve_order_for_riders(order_id):
+    """Admin-only gate for COD orders (UPI orders auto-approve when payment is confirmed above) —
+    riders see the order with a 'waiting for admin confirmation' message and no Accept button
+    until this fires."""
+    if not require_admin():
+        return jsonify(error="Unauthorized"), 401
+
+    def mutate(order, notifications):
+        if order.get("status") != "Placed":
+            raise ValueError("order is not in a placed state")
+        if order.get("riderApproved"):
+            raise ValueError("order is already approved")
+        order["riderApproved"] = True
+        _notify(notifications, "all-riders", None, f"✅ Admin approved order #{order['id']} — you can accept it now!", "✅")
+
+    return _run_order_mutation(order_id, mutate)
+
+
 @app.post("/api/orders/<order_id>/accept")
 def accept_order(order_id):
     rider_id = (request.get_json(silent=True) or {}).get("riderId", "")
@@ -511,7 +550,7 @@ def accept_order(order_id):
         return jsonify(error="unknown rider"), 404
 
     def mutate(order, notifications):
-        if order.get("status") != "Placed":
+        if order.get("status") != "Placed" or not order.get("riderApproved"):
             raise ValueError("order is no longer available")
         order["status"] = "Accepted"
         order["riderId"] = rider_id

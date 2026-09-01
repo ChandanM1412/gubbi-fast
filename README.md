@@ -43,12 +43,14 @@ Free, no credit card needed:
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       match /gubbiFast/{doc} {
+       match /gubbiFast/{doc=**} {
          allow read, write: if false; // everything goes through the Python backend
        }
      }
    }
    ```
+   The `{doc=**}` wildcard also covers the `orders` subcollection nested under `gubbiFast/live`
+   (used to store individual orders — see below), not just top-level documents.
    The frontend no longer reads Firestore directly (it reads through `GET /api/catalog` /
    `GET /api/live` instead), so this can now deny read *and* write for the browser's SDK
    entirely — the Admin SDK the backend uses **bypasses these rules by design**, so the backend
