@@ -1242,6 +1242,7 @@ async function addMenuItem(restId,name,price,veg,emoji,image){
     showToast('Menu item added.');
     return;
   }catch(e){ /* no backend reachable — fall back below */ }
+  DB.menu[restId] = DB.menu[restId] || [];
   DB.menu[restId].push({id:'m_'+Date.now(), name, price:Number(price), veg, emoji: emoji||'🍽️', image: image||null});
   saveCatalog();
   showToast('Menu item added.');
@@ -2647,7 +2648,7 @@ function submitEditRestaurant(id){
 function openAdminMenu(id){ S._adminMenuFor = (S._adminMenuFor===id)? null : id; render(); }
 function adminMenuEditor(restId){
   const r = restaurantById(restId);
-  const items = DB.menu[restId];
+  const items = DB.menu[restId] || [];
   return `
   <div class="card menu-editor-panel" style="margin-top:14px;">
     <div class="section-title" style="margin-top:0;">Menu for ${r.name}</div>

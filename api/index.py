@@ -254,8 +254,23 @@ def _get_catalog_doc():
     return _seed_catalog_if_missing(catalog_ref)
 
 
+def _migrate_legacy_menu(catalog):
+    legacy_menu = catalog.get("menu") or {}
+    if not legacy_menu:
+        return
+    menu_ref = _menu_collection()
+    existing = {d.id for d in menu_ref.stream()}
+    for restaurant_id, items in legacy_menu.items():
+        for item in items:
+            if item.get("id") not in existing:
+                menu_ref.document(item["id"]).set(dict(item, restaurantId=restaurant_id))
+    catalog_ref = get_db().collection("gubbiFast").document("catalog")
+    catalog_ref.update({"menu": firestore.DELETE_FIELD})
+
+
 def _get_catalog():
     data = dict(_get_catalog_doc())
+    _migrate_legacy_menu(data)
     menu = {}
     for item in [d.to_dict() for d in _menu_collection().stream()]:
         menu.setdefault(item.get("restaurantId"), []).append(item)
