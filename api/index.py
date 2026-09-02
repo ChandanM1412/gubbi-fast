@@ -47,10 +47,10 @@ DEFAULT_CATALOG_SEED_VERSION = 3
 # browser's page source or dev tools.
 DEFAULT_CATALOG = {
     "restaurants": [
-        {"id": "r1", "name": "Gubbi Tiffin House", "cuisine": "South Indian · Tiffins", "area": "B.H. Road, Gubbi", "eta": "25-30 min", "rating": 4.3, "color": "#F2A93B", "emoji": "🍛", "lat": 13.3096, "lng": 76.9376, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Masala_dosa_01.jpg/960px-Masala_dosa_01.jpg"},
-        {"id": "r2", "name": "Royals Food", "cuisine": "Multi-Cuisine · Biryani", "area": "Bus Stand Road, Gubbi", "eta": "30-35 min", "rating": 4.1, "color": "#C1442E", "emoji": "🍚", "lat": 13.3070, "lng": 76.9350, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Chicken_Hyderabadi_Biryani.JPG/960px-Chicken_Hyderabadi_Biryani.JPG"},
-        {"id": "r3", "name": "Kaveri Bakery", "cuisine": "Bakery · Sweets", "area": "Tumkur Road, Gubbi", "eta": "20-25 min", "rating": 4.5, "color": "#2E6B4F", "emoji": "🥐", "lat": 13.3110, "lng": 76.9390, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/IndianBakeryRolls1.jpg/960px-IndianBakeryRolls1.jpg"},
-        {"id": "r4", "name": "Bangarpet Chats", "cuisine": "Chaat · Street Food", "area": "APMC Yard, Gubbi", "eta": "15-20 min", "rating": 4.0, "color": "#8E5FA3", "emoji": "🥟", "lat": 13.3060, "lng": 76.9410, "image": "https://upload.wikimedia.org/wikipedia/commons/2/22/Bhel_puri_Snack.jpg"},
+        {"id": "r1", "name": "Gubbi Tiffin House", "cuisine": "South Indian · Tiffins", "area": "B.H. Road, Gubbi", "rating": 4.3, "color": "#F2A93B", "emoji": "🍛", "lat": 13.3096, "lng": 76.9376, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Masala_dosa_01.jpg/960px-Masala_dosa_01.jpg"},
+        {"id": "r2", "name": "Royals Food", "cuisine": "Multi-Cuisine · Biryani", "area": "Bus Stand Road, Gubbi", "rating": 4.1, "color": "#C1442E", "emoji": "🍚", "lat": 13.3070, "lng": 76.9350, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Chicken_Hyderabadi_Biryani.JPG/960px-Chicken_Hyderabadi_Biryani.JPG"},
+        {"id": "r3", "name": "Kaveri Bakery", "cuisine": "Bakery · Sweets", "area": "Tumkur Road, Gubbi", "rating": 4.5, "color": "#2E6B4F", "emoji": "🥐", "lat": 13.3110, "lng": 76.9390, "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/IndianBakeryRolls1.jpg/960px-IndianBakeryRolls1.jpg"},
+        {"id": "r4", "name": "Bangarpet Chats", "cuisine": "Chaat · Street Food", "area": "APMC Yard, Gubbi", "rating": 4.0, "color": "#8E5FA3", "emoji": "🥟", "lat": 13.3060, "lng": 76.9410, "image": "https://upload.wikimedia.org/wikipedia/commons/2/22/Bhel_puri_Snack.jpg"},
     ],
     "menu": {
         "r1": [
@@ -642,7 +642,6 @@ def add_restaurant():
         "name": name,
         "cuisine": body.get("cuisine") or "Multi-cuisine",
         "area": body.get("area") or "Gubbi",
-        "eta": body.get("eta") or "25-30 min",
         "color": "#F2A93B",
         "emoji": body.get("emoji") or "🍴",
         "lat": FALLBACK_LAT + (random.random() - 0.5) * 0.04,
@@ -668,7 +667,7 @@ def edit_restaurant(restaurant_id):
     def mutate(catalog):
         for r in catalog.get("restaurants", []):
             if r.get("id") == restaurant_id:
-                for field in ("name", "cuisine", "area", "eta", "emoji", "image"):
+                for field in ("name", "cuisine", "area", "emoji", "image"):
                     if field in body:
                         r[field] = body[field]
                 if "rating" in body:

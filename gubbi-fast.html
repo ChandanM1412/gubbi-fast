@@ -224,6 +224,12 @@
   }
   .fs-whatsapp{background:#25D366;}
   .fs-instagram{background:radial-gradient(circle at 30% 110%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);}
+  /* floating "+" add button used on admin Restaurants/Riders/Offers tabs, above the bottom nav */
+  .fab-add{
+    position:fixed;right:16px;bottom:84px;width:52px;height:52px;border-radius:50%;border:none;
+    background:var(--marigold);color:var(--charcoal);font-size:28px;font-weight:800;line-height:1;
+    box-shadow:0 6px 16px rgba(0,0,0,0.28);cursor:pointer;z-index:46;
+  }
   .cart-bar .l{font-size:13px;color:#C9C2B3;}
   .cart-bar .r{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--marigold);font-size:14px;}
   /* route tracker signature element */
@@ -1164,9 +1170,9 @@ async function markDelivered(orderId){
   render();
 }
 
-async function addRestaurant(name,cuisine,area,eta,emoji,image){
+async function addRestaurant(name,cuisine,area,emoji,image){
   try{
-    const {ok, data} = await apiCall('/api/catalog/restaurants', jsonPost({name,cuisine,area,eta,emoji,image}, authHeaders()));
+    const {ok, data} = await apiCall('/api/catalog/restaurants', jsonPost({name,cuisine,area,emoji,image}, authHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not add restaurant.'); return; }
     await pollShared();
     showToast('Restaurant added.');
@@ -1176,7 +1182,7 @@ async function addRestaurant(name,cuisine,area,eta,emoji,image){
   // Jitter slightly off the city-centre fallback so new restaurants still get a valid map pin
   const lat = FALLBACK_LOC.lat + (Math.random()-0.5)*0.04;
   const lng = FALLBACK_LOC.lng + (Math.random()-0.5)*0.04;
-  DB.restaurants.push({id,name,cuisine,area,eta,color:'#F2A93B',emoji: emoji||'🍴', lat, lng, image: image||null});
+  DB.restaurants.push({id,name,cuisine,area,color:'#F2A93B',emoji: emoji||'🍴', lat, lng, image: image||null});
   DB.menu[id] = [];
   saveCatalog();
   pushNotification('admin', null, `Restaurant "${name}" added to the platform.`, '🏬');
@@ -2481,12 +2487,12 @@ async function submitSettings(){
 
 function adminRestaurants(){
   return `
+  ${S._showAddRestaurant?`
   <div class="card">
     <div class="section-title" style="margin-top:0;">Add a restaurant</div>
     <div class="field"><label>Name</label><input id="newRName" placeholder="e.g. Cubbon Curry House"></div>
     <div class="field"><label>Cuisine</label><input id="newRCuisine" placeholder="e.g. North Karnataka"></div>
     <div class="field"><label>Area</label><input id="newRArea" placeholder="e.g. B.H. Road, Gubbi"></div>
-    <div class="field"><label>Delivery ETA</label><input id="newREta" placeholder="e.g. 20-25 min"></div>
     <div class="field"><label>Emoji icon (used if no photo is added)</label><input id="newREmoji" placeholder="🍛" maxlength="2"></div>
     <div class="field">
       <label>Restaurant image — paste a URL, or upload from device</label>
@@ -2496,8 +2502,11 @@ function adminRestaurants(){
         <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="newRImageFile" onchange="handleImageUpload(this,'newRImgPreview')"></label>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="submitAddRestaurant()">Add restaurant</button>
-  </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="submitAddRestaurant()">Add restaurant</button>
+      <button class="btn btn-ghost" onclick="toggleAddRestaurant()">Cancel</button>
+    </div>
+  </div>`:''}
   <div class="section-title">All restaurants</div>
   ${DB.restaurants.map(r=>`
     <div class="list-row">
@@ -2510,17 +2519,19 @@ function adminRestaurants(){
     </div>
     ${S._editRestaurantFor===r.id?editRestaurantForm(r):''}`).join('')}
   ${S._adminMenuFor?adminMenuEditor(S._adminMenuFor):''}
+  <button class="fab-add" onclick="toggleAddRestaurant()" aria-label="Add restaurant">+</button>
   `;
 }
+function toggleAddRestaurant(){ S._showAddRestaurant = !S._showAddRestaurant; render(); }
 function submitAddRestaurant(){
   const n = document.getElementById('newRName').value.trim();
   if(!n){ showToast('Enter a restaurant name.'); return; }
   const fileInput = document.getElementById('newRImageFile');
   const image = (fileInput && fileInput.dataset.uploaded) || document.getElementById('newRImageUrl').value.trim() || null;
+  S._showAddRestaurant = false;
   addRestaurant(n,
     document.getElementById('newRCuisine').value.trim()||'Multi-cuisine',
     document.getElementById('newRArea').value.trim()||'Gubbi',
-    document.getElementById('newREta').value.trim()||'25-30 min',
     document.getElementById('newREmoji').value.trim()||'🍴',
     image);
 }
@@ -2532,7 +2543,6 @@ function editRestaurantForm(r){
     <div class="field"><label>Name</label><input id="editRName_${r.id}" value="${r.name}"></div>
     <div class="field"><label>Cuisine</label><input id="editRCuisine_${r.id}" value="${r.cuisine}"></div>
     <div class="field"><label>Area</label><input id="editRArea_${r.id}" value="${r.area}"></div>
-    <div class="field"><label>Delivery ETA</label><input id="editREta_${r.id}" value="${r.eta}"></div>
     <div class="field"><label>Emoji icon</label><input id="editREmoji_${r.id}" value="${r.emoji}" maxlength="2"></div>
     <div class="field"><label>Rating (out of 5)</label><input id="editRRating_${r.id}" type="number" min="1" max="5" step="0.1" value="${ratingFor(r)}"></div>
     <div class="field">
@@ -2554,7 +2564,6 @@ function submitEditRestaurant(id){
     name: document.getElementById(`editRName_${id}`).value.trim(),
     cuisine: document.getElementById(`editRCuisine_${id}`).value.trim(),
     area: document.getElementById(`editRArea_${id}`).value.trim(),
-    eta: document.getElementById(`editREta_${id}`).value.trim(),
     emoji: document.getElementById(`editREmoji_${id}`).value.trim(),
     rating: Number(document.getElementById(`editRRating_${id}`).value) || undefined,
     image: document.getElementById(`editRImage_${id}`).value.trim() || null,
@@ -2657,14 +2666,18 @@ function submitEditMenuItem(restId, itemId){
 
 function adminRiders(){
   return `
+  ${S._showAddRider?`
   <div class="card">
     <div class="section-title" style="margin-top:0;">Add a rider</div>
     <div class="field"><label>Name</label><input id="newRiderName" placeholder="e.g. Naveen K."></div>
     <div class="field"><label>Phone</label><input id="newRiderPhone" placeholder="98xxxxxxxx"></div>
     <div class="field"><label>Login password (tell this to the rider)</label><div class="pw-wrap"><input id="newRiderPassword" type="password" placeholder="Set a password for this rider">${pwEyeBtn()}</div></div>
     <div class="field"><label>Commission per delivered order (%)</label><input id="newRiderPay" type="number" placeholder="10" value="10"></div>
-    <button class="btn btn-primary" onclick="submitAddRider()">Add rider</button>
-  </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="submitAddRider()">Add rider</button>
+      <button class="btn btn-ghost" onclick="toggleAddRider()">Cancel</button>
+    </div>
+  </div>`:''}
   <div class="section-title">All riders — tap ✏️ to edit details or reset a password</div>
   ${DB.riders.map(r=>{
     const active = DB.orders.filter(o=>o.riderId===r.id && o.status!=='Delivered').length;
@@ -2678,8 +2691,10 @@ function adminRiders(){
       </div>
       ${S._editRiderFor===r.id?editRiderForm(r):''}
     </div>`;
-  }).join('')}`;
+  }).join('')}
+  <button class="fab-add" onclick="toggleAddRider()" aria-label="Add rider">+</button>`;
 }
+function toggleAddRider(){ S._showAddRider = !S._showAddRider; render(); }
 function openEditRider(id){ S._editRiderFor = (S._editRiderFor===id)?null:id; render(); }
 function editRiderForm(r){
   return `
@@ -2700,6 +2715,7 @@ function submitAddRider(){
   const pw = document.getElementById('newRiderPassword').value;
   if(!n||!p){ showToast('Enter rider name and phone.'); return; }
   if(!pw||pw.length<4){ showToast('Set a password (at least 4 characters) for this rider.'); return; }
+  S._showAddRider = false;
   addRider(n,p,document.getElementById('newRiderPay').value,pw);
 }
 function submitEditRider(id){
@@ -2715,6 +2731,7 @@ function adminOffers(){
   const restOptions = DB.restaurants.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   const bgSwatches = ['#C1442E','#2E6B4F','#F2A93B','#2453A8','#8E5FA3','#1C1B19'];
   return `
+  ${S._showAddOffer?`
   <div class="card">
     <div class="section-title" style="margin-top:0;">Add an offer</div>
     <div class="field"><label>Title</label><input id="newOfferTitle" placeholder="e.g. FLAT 40% OFF"></div>
@@ -2731,10 +2748,13 @@ function adminOffers(){
       <label>Link to restaurant — tapping the offer takes the customer here</label>
       <select id="newOfferRest"><option value="">— No restaurant (informational only) —</option>${restOptions}</select>
     </div>
-    <button class="btn btn-primary" onclick="submitAddOffer()">Add offer</button>
-  </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="submitAddOffer()">Add offer</button>
+      <button class="btn btn-ghost" onclick="toggleAddOffer()">Cancel</button>
+    </div>
+  </div>`:''}
   <div class="section-title">Live offers — shown on the customer home screen</div>
-  ${DB.offers.length===0?`<div class="empty"><div class="big">🎁</div>No offers yet. Add one above.</div>`:
+  ${DB.offers.length===0?`<div class="empty"><div class="big">🎁</div>No offers yet. Tap + to add one.</div>`:
   DB.offers.map(o=>{
     const rest = o.restaurantId ? restaurantById(o.restaurantId) : null;
     return `<div class="list-row">
@@ -2744,8 +2764,10 @@ function adminOffers(){
       <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteOffer('${o.id}')">Remove</button>
     </div>
     ${S._editOfferFor===o.id?editOfferForm(o,restOptions):''}`;
-  }).join('')}`;
+  }).join('')}
+  <button class="fab-add" onclick="toggleAddOffer()" aria-label="Add offer">+</button>`;
 }
+function toggleAddOffer(){ S._showAddOffer = !S._showAddOffer; render(); }
 function openEditOffer(id){ S._editOfferFor = (S._editOfferFor===id)?null:id; render(); }
 function editOfferForm(o,restOptions){
   const options = DB.restaurants.map(r=>`<option value="${r.id}" ${o.restaurantId===r.id?'selected':''}>${r.name}</option>`).join('');
@@ -2775,6 +2797,7 @@ function submitEditOffer(id){
 function submitAddOffer(){
   const title = document.getElementById('newOfferTitle').value.trim();
   if(!title){ showToast('Enter an offer title.'); return; }
+  S._showAddOffer = false;
   addOffer(title,
     document.getElementById('newOfferSub').value.trim()||'Limited time offer',
     document.getElementById('newOfferEmoji').value.trim(),
