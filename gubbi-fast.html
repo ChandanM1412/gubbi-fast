@@ -2334,7 +2334,15 @@ function screenAdminDashboard(){
     ${tab==='profile'?adminProfile():''}
   </div>`;
 }
-function setAdminTab(t){ S.adminTab=t; render(); }
+/* Switching tabs always starts clean — closes any lingering add-form/edit-form/menu-editor
+   panel left open on the previous tab instead of it reappearing when navigating back. */
+function setAdminTab(t){
+  S.adminTab = t;
+  S._showAddRestaurant = false; S._editRestaurantFor = null; S._adminMenuFor = null;
+  S._showAddRider = false; S._editRiderFor = null;
+  S._showAddOffer = false; S._editOfferFor = null;
+  render();
+}
 function adminBottomNav(active){
   const tabs = [
     {id:'restaurants', icon:'🏬', label:'Restaurants'},
@@ -2506,7 +2514,7 @@ function adminRestaurants(){
       <button class="btn btn-primary" onclick="submitAddRestaurant()">Add restaurant</button>
       <button class="btn btn-ghost" onclick="toggleAddRestaurant()">Cancel</button>
     </div>
-  </div>`:''}
+  </div>`:`
   <div class="section-title">All restaurants</div>
   ${DB.restaurants.map(r=>`
     <div class="list-row">
@@ -2519,10 +2527,15 @@ function adminRestaurants(){
     </div>
     ${S._editRestaurantFor===r.id?editRestaurantForm(r):''}`).join('')}
   ${S._adminMenuFor?adminMenuEditor(S._adminMenuFor):''}
+  `}
   <button class="fab-add" onclick="toggleAddRestaurant()" aria-label="Add restaurant">+</button>
   `;
 }
-function toggleAddRestaurant(){ S._showAddRestaurant = !S._showAddRestaurant; render(); }
+function toggleAddRestaurant(){
+  S._showAddRestaurant = !S._showAddRestaurant;
+  if(S._showAddRestaurant){ S._adminMenuFor = null; S._editRestaurantFor = null; }
+  render();
+}
 function submitAddRestaurant(){
   const n = document.getElementById('newRName').value.trim();
   if(!n){ showToast('Enter a restaurant name.'); return; }
@@ -2677,7 +2690,7 @@ function adminRiders(){
       <button class="btn btn-primary" onclick="submitAddRider()">Add rider</button>
       <button class="btn btn-ghost" onclick="toggleAddRider()">Cancel</button>
     </div>
-  </div>`:''}
+  </div>`:`
   <div class="section-title">All riders — tap ✏️ to edit details or reset a password</div>
   ${DB.riders.map(r=>{
     const active = DB.orders.filter(o=>o.riderId===r.id && o.status!=='Delivered').length;
@@ -2692,9 +2705,14 @@ function adminRiders(){
       ${S._editRiderFor===r.id?editRiderForm(r):''}
     </div>`;
   }).join('')}
+  `}
   <button class="fab-add" onclick="toggleAddRider()" aria-label="Add rider">+</button>`;
 }
-function toggleAddRider(){ S._showAddRider = !S._showAddRider; render(); }
+function toggleAddRider(){
+  S._showAddRider = !S._showAddRider;
+  if(S._showAddRider) S._editRiderFor = null;
+  render();
+}
 function openEditRider(id){ S._editRiderFor = (S._editRiderFor===id)?null:id; render(); }
 function editRiderForm(r){
   return `
@@ -2752,7 +2770,7 @@ function adminOffers(){
       <button class="btn btn-primary" onclick="submitAddOffer()">Add offer</button>
       <button class="btn btn-ghost" onclick="toggleAddOffer()">Cancel</button>
     </div>
-  </div>`:''}
+  </div>`:`
   <div class="section-title">Live offers — shown on the customer home screen</div>
   ${DB.offers.length===0?`<div class="empty"><div class="big">🎁</div>No offers yet. Tap + to add one.</div>`:
   DB.offers.map(o=>{
@@ -2765,9 +2783,14 @@ function adminOffers(){
     </div>
     ${S._editOfferFor===o.id?editOfferForm(o,restOptions):''}`;
   }).join('')}
+  `}
   <button class="fab-add" onclick="toggleAddOffer()" aria-label="Add offer">+</button>`;
 }
-function toggleAddOffer(){ S._showAddOffer = !S._showAddOffer; render(); }
+function toggleAddOffer(){
+  S._showAddOffer = !S._showAddOffer;
+  if(S._showAddOffer) S._editOfferFor = null;
+  render();
+}
 function openEditOffer(id){ S._editOfferFor = (S._editOfferFor===id)?null:id; render(); }
 function editOfferForm(o,restOptions){
   const options = DB.restaurants.map(r=>`<option value="${r.id}" ${o.restaurantId===r.id?'selected':''}>${r.name}</option>`).join('');
