@@ -18,6 +18,7 @@ import datetime
 import json
 import os
 import random
+import secrets
 import time
 
 import firebase_admin
@@ -426,12 +427,14 @@ def customer_signup():
     creds = snap.to_dict() if snap.exists else {}
     if phone in creds:
         return jsonify(error="This phone number is already registered — please log in instead."), 409
+    recovery_code = secrets.token_hex(4).upper()
     creds[phone] = {
         "passwordHash": generate_password_hash(password),
+        "recoveryCodeHash": generate_password_hash(recovery_code),
         "name": name, "address": address, "lat": lat, "lng": lng,
     }
     creds_ref.set(creds)
-    return jsonify(ok=True, customer={"name": name, "phone": phone, "address": address, "lat": lat, "lng": lng})
+    return jsonify(ok=True, recoveryCode=recovery_code, customer={"name": name, "phone": phone, "address": address, "lat": lat, "lng": lng})
 
 
 @app.post("/api/customers/login")
@@ -465,6 +468,27 @@ def customer_change_password():
     if not record or not check_password_hash(record.get("passwordHash", ""), current_password):
         return jsonify(error="Current password is incorrect"), 401
     record["passwordHash"] = generate_password_hash(new_password)
+    creds[phone] = record
+    creds_ref.set(creds)
+    return jsonify(ok=True)
+
+
+@app.post("/api/customers/reset-password")
+def customer_reset_password():
+    body = request.get_json(silent=True) or {}
+    phone = _normalize_phone(body.get("phone"))
+    recovery_code = (body.get("recoveryCode") or "").strip().upper()
+    new_password = body.get("newPassword") or ""
+    if len(new_password) < 4:
+        return jsonify(error="New password must be at least 4 characters"), 400
+    creds_ref = get_db().collection("gubbiFast").document("customerCredentials")
+    snap = creds_ref.get()
+    creds = snap.to_dict() if snap.exists else {}
+    record = creds.get(phone)
+    if not record or not record.get("recoveryCodeHash") or not check_password_hash(record["recoveryCodeHash"], recovery_code):
+        return jsonify(error="Phone number or recovery code is incorrect"), 401
+    record["passwordHash"] = generate_password_hash(new_password)
+    record.pop("recoveryCodeHash", None)
     creds[phone] = record
     creds_ref.set(creds)
     return jsonify(ok=True)

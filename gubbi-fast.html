@@ -1889,7 +1889,7 @@ function customerAuthFormHtml(context){
       <div class="field"><label>Phone number</label><input id="authPhone" placeholder="98xxxxxxxx" value="${draft.phone||''}"></div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input id="authPassword" type="password" placeholder="Your password">${pwEyeBtn()}</div></div>
       <button class="btn btn-primary" onclick="submitCustomerLogin('${context}')">Log in</button>
-      <button class="btn btn-ghost" style="margin-top:8px;" onclick="contactForgotPassword()">Forgot password?</button>
+      <button class="btn btn-ghost" style="margin-top:8px;" onclick="go('customer-forgot-password')">Forgot password?</button>
     </div>` : `
     <div class="card">
       <div class="field"><label>Your name</label><input id="authName" placeholder="e.g. Anitha Rao" value="${draft.name||''}"></div>
@@ -1904,10 +1904,8 @@ function customerAuthFormHtml(context){
   `;
 }
 function setAuthTab(tab){ S._authTab = tab; render(); }
-function contactForgotPassword(){
-  const phone = (document.getElementById('authPhone')?.value||'').trim();
-  const message = `Hello Gubbi Fast, I forgot my customer password. Please verify my registered phone number and help me reset it: ${phone||'[phone number]'}.`;
-  window.open(`${WHATSAPP_CONTACT_URL}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+function showRecoveryCode(code){
+  alert(`Save this recovery code somewhere safe:\n\n${code}\n\nYou need it to reset your password. It will not be shown again.`);
 }
 function captureAuthDraft(){
   const val = id => { const el=document.getElementById(id); return el ? el.value : undefined; };
@@ -1952,14 +1950,17 @@ async function submitCustomerSignup(context){
     const {ok, data} = await apiCall('/api/customers/signup', jsonPost({name, phone, password, address, lat:S._pendingLat, lng:S._pendingLng}));
     if(!ok){ showToast((data&&data.error)||'Could not sign up — try again.'); return; }
     applyCustomerProfile(data.customer);
+    if(data.recoveryCode) showRecoveryCode(data.recoveryCode);
     afterCustomerAuth(context);
     return;
   }catch(e){ /* no backend reachable — fall back to this device's local demo store below */ }
   const creds = (await backendGet('customerCredentials')) || {};
   const key = normalizePhoneClient(phone);
   if(creds[key]){ showToast('This phone number is already registered — please log in instead.'); return; }
-  creds[key] = {password, name, address, lat:S._pendingLat, lng:S._pendingLng};
+  const recoveryCode = Array.from(crypto.getRandomValues(new Uint8Array(4)), b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+  creds[key] = {password, recoveryCode, name, address, lat:S._pendingLat, lng:S._pendingLng};
   await backendSet('customerCredentials', creds);
+  showRecoveryCode(recoveryCode);
   applyCustomerProfile({name, phone:key, address, lat:S._pendingLat, lng:S._pendingLng});
   afterCustomerAuth(context);
 }
@@ -1984,6 +1985,45 @@ function screenCustomerChangePassword(){
       <button class="btn btn-primary" onclick="submitCustomerChangePassword()">Update password</button>
     </div>
   </div>`;
+}
+function screenCustomerForgotPassword(){
+  return `
+  ${backbar('Reset customer password','customer-login')}
+  <div class="content">
+    <div class="card">
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Use the recovery code you received when you created your account.</div>
+      <div class="field"><label>Registered phone number</label><input id="rpPhone" placeholder="98xxxxxxxx"></div>
+      <div class="field"><label>Recovery code</label><input id="rpCode" placeholder="8-character code" autocapitalize="characters"></div>
+      <div class="field"><label>New password</label><div class="pw-wrap"><input id="rpNew" type="password" placeholder="At least 4 characters">${pwEyeBtn()}</div></div>
+      <div class="field"><label>Confirm new password</label><div class="pw-wrap"><input id="rpConfirm" type="password" placeholder="Re-enter new password">${pwEyeBtn()}</div></div>
+      <button class="btn btn-primary" onclick="submitCustomerResetPassword()">Reset password</button>
+    </div>
+  </div>`;
+}
+async function submitCustomerResetPassword(){
+  const phone = document.getElementById('rpPhone').value.trim();
+  const recoveryCode = document.getElementById('rpCode').value.trim().toUpperCase();
+  const newPassword = document.getElementById('rpNew').value||'';
+  const confirmPassword = document.getElementById('rpConfirm').value||'';
+  if(!phone || !recoveryCode || !newPassword){ showToast('Fill in all fields.'); return; }
+  if(newPassword.length<4){ showToast('New password must be at least 4 characters.'); return; }
+  if(newPassword!==confirmPassword){ showToast('New passwords do not match.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/customers/reset-password', jsonPost({phone, recoveryCode, newPassword}));
+    if(!ok){ showToast((data&&data.error)||'Phone number or recovery code is incorrect.'); return; }
+    showToast('✅ Password reset. Please log in.');
+    go('customer-login');
+    return;
+  }catch(e){ /* no backend reachable — fall back to this device's local demo store below */ }
+  const creds = (await backendGet('customerCredentials')) || {};
+  const record = creds[normalizePhoneClient(phone)];
+  if(!record || record.recoveryCode!==recoveryCode){ showToast('Phone number or recovery code is incorrect.'); return; }
+  record.password = newPassword;
+  delete record.recoveryCode;
+  creds[normalizePhoneClient(phone)] = record;
+  await backendSet('customerCredentials', creds);
+  showToast('✅ Password reset. Please log in.');
+  go('customer-login');
 }
 async function submitCustomerChangePassword(){
   const currentPassword = document.getElementById('cpCurrent').value||'';
@@ -2954,6 +2994,7 @@ function render(){
   let html = '';
   switch(S.screen){
     case 'customer-login': html = screenCustomerLogin(); break;
+    case 'customer-forgot-password': html = screenCustomerForgotPassword(); break;
     case 'customer-restaurants': html = screenCustomerRestaurants(); break;
     case 'customer-offers': html = screenCustomerOffers(); break;
     case 'customer-notifications': html = screenCustomerNotifications(); break;
