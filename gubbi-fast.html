@@ -1632,7 +1632,7 @@ function screenCustomerAccount(){
     <div class="card" style="text-align:center;">
       <div style="font-size:34px;margin-bottom:6px;">👋</div>
       <div style="font-weight:700;font-size:15px;">Helloo!!</div>
-      <div class="meta" style="font-size:12px;color:var(--muted);margin:6px 0 14px;">Log in to track orders and get notified about your delivery.</div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin:6px 0 14px;">Log in to book, track orders and get notified about your delivery.</div>
       <button class="btn btn-primary" onclick="go('customer-login')">Login / Sign up</button>
     </div>
     <div class="section-title">Other logins</div>
@@ -1892,7 +1892,7 @@ function customerAuthFormHtml(context){
       <button class="btn btn-ghost" style="margin-top:8px;" onclick="go('customer-forgot-password')">Forgot password?</button>
     </div>` : `
     <div class="card">
-      <div class="field"><label>Your name</label><input id="authName" placeholder="e.g. Anitha Rao" value="${draft.name||''}"></div>
+      <div class="field"><label>Your name</label><input id="authName" placeholder="e.g. Chandan M" value="${draft.name||''}"></div>
       <div class="field"><label>Phone number</label><input id="authPhone" placeholder="98xxxxxxxx" value="${draft.phone||''}"></div>
       <div class="field"><label>Create password</label><div class="pw-wrap"><input id="authPassword" type="password" placeholder="At least 4 characters">${pwEyeBtn()}</div></div>
       <div class="field"><label>Confirm password</label><div class="pw-wrap"><input id="authConfirmPassword" type="password" placeholder="Re-enter password">${pwEyeBtn()}</div></div>
@@ -1965,6 +1965,8 @@ async function submitCustomerSignup(context){
   afterCustomerAuth(context);
 }
 function applyCustomerProfile(c){
+  localStorage.removeItem('gubbi_rider_session');
+  localStorage.removeItem('gubbi_admin_session');
   S.role='customer'; S.customerName=c.name; S.customerPhone=c.phone; S.homeVegFilter=S.homeVegFilter||'all';
   S._pendingAddress = c.address || S._pendingAddress || 'Home';
   if(c.lat!=null && c.lng!=null){ S._pendingLat=c.lat; S._pendingLng=c.lng; S._locCaptured=true; }
@@ -2143,7 +2145,7 @@ function screenRiderLogin(){
     <div class="card">
       <div class="field">
         <label>Name</label>
-        <input id="riderSearch" placeholder="Type your name, e.g. A" value="${S._riderSearch||''}" oninput="onRiderSearchInput(this.value)" autocomplete="off">
+        <input id="riderSearch" placeholder="Type your name, e.g. C" value="${S._riderSearch||''}" oninput="onRiderSearchInput(this.value)" autocomplete="off">
         <input type="hidden" id="riderSelect" value="${S._riderSelectedId||''}">
         <div id="riderSuggestions">${riderSuggestionsHtml(S._riderSearch||'')}</div>
       </div>
@@ -2194,6 +2196,8 @@ async function doRiderLogin(){
   try{
     const {ok, data} = await apiCall('/api/riders/login', jsonPost({riderId, password}));
     if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
+    localStorage.removeItem('gubbi_customer_session');
+    localStorage.removeItem('gubbi_admin_session');
     S.role='rider';
     S.riderId = riderId;
     saveRiderSession();
@@ -2202,6 +2206,8 @@ async function doRiderLogin(){
   }catch(e){ /* no backend reachable — fall back below */ }
   const rider = riderById(riderId);
   if(!rider || rider.password !== password){ showToast('Incorrect password.'); return; }
+  localStorage.removeItem('gubbi_customer_session');
+  localStorage.removeItem('gubbi_admin_session');
   S.role='rider';
   S.riderId = riderId;
   saveRiderSession();
@@ -2357,9 +2363,14 @@ async function doAdminLogin(){
     const res = await fetch('/api/admin/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:p})});
     if(res.ok){
       const data = await res.json();
+      localStorage.removeItem('gubbi_customer_session');
+      localStorage.removeItem('gubbi_rider_session');
       S.adminToken = data.token;
       S.role='admin';
+      S.adminTab='restaurants';
+      S.adminProfileView=null;
       saveAdminSession();
+      await loadAll();
       go('admin-dashboard');
       return;
     }
@@ -2504,9 +2515,7 @@ function adminSettings(){
   <div class="card">
     <div class="section-title" style="margin-top:0;">Change admin password</div>
     <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      Sets your own admin password, stored securely on the backend. The default password
-      (whatever ADMIN_PASSWORD is set to on the server) keeps working too — this just adds a
-      second one only you know.
+      Sets your own admin password, stored securely on the backend database. Please do it only once & remember it carefully.
     </div>
     <div class="field"><label>New admin password</label><div class="pw-wrap"><input id="setAdminPassword" type="password" placeholder="At least 6 characters">${pwEyeBtn()}</div></div>
     <button class="btn btn-outline" onclick="submitAdminPassword()">Save new admin password</button>
