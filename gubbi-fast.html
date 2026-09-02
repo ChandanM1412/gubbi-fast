@@ -3035,6 +3035,11 @@ async function init(){
   setInterval(pollShared, 8000); // pick up orders/catalog changes made in other tabs/devices — kept fairly infrequent to stay well within Firestore's free daily read quota
 }
 init();
+/* Registering a service worker (even one that does no caching) is one of the checks
+   Chrome/Edge/Android require before they'll show the automatic "Install app" prompt. */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
