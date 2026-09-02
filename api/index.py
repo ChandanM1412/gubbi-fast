@@ -330,6 +330,36 @@ def clear_orders():
     return jsonify(ok=True)
 
 
+@app.post("/api/restaurants/<restaurant_id>/clear-payments")
+def clear_restaurant_payments(restaurant_id):
+    """Marks every currently-outstanding delivered order for this restaurant as paid out —
+    doesn't touch orders that are still in progress or already settled."""
+    if not require_admin():
+        return jsonify(error="Unauthorized"), 401
+    db = get_db()
+    docs = list(
+        _orders_collection()
+        .where("restaurantId", "==", restaurant_id)
+        .where("status", "==", "Delivered")
+        .stream()
+    )
+    batch = db.batch()
+    cleared = 0
+    for i, d in enumerate(docs):
+        if d.to_dict().get("restaurantSettled"):
+            continue
+        batch.update(d.reference, {"restaurantSettled": True})
+        cleared += 1
+        if (i + 1) % 400 == 0:  # stay under Firestore's 500-write batch limit
+            batch.commit()
+            batch = db.batch()
+    batch.commit()
+    meta = _get_live_meta()
+    meta["liveRev"] = (meta.get("liveRev", 0) or 0) + 1
+    _live_meta_ref().set(meta)
+    return jsonify(ok=True, cleared=cleared)
+
+
 # ============ CUSTOMER AUTH ============
 # Password hashes live in their own 'customerCredentials' doc, keyed by normalized 10-digit
 # phone number — never included in the 'catalog'/'live' docs the frontend reads, so a

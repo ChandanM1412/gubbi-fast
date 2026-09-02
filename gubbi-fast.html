@@ -2321,21 +2321,102 @@ function screenAdminDashboard(){
       <div class="stat stat-clickable" onclick="setAdminTab('riders')"><div class="n">${DB.riders.length}</div><div class="l">Riders</div></div>
       <div class="stat stat-clickable" onclick="setAdminTab('orders')"><div class="n">${DB.orders.length}</div><div class="l">Orders</div></div>
     </div>
-    <div class="tab-row">
-      <div class="tab ${tab==='restaurants'?'active':''}" onclick="setAdminTab('restaurants')">Restaurants</div>
-      <div class="tab ${tab==='riders'?'active':''}" onclick="setAdminTab('riders')">Riders</div>
-      <div class="tab ${tab==='offers'?'active':''}" onclick="setAdminTab('offers')">Offers</div>
-      <div class="tab ${tab==='orders'?'active':''}" onclick="setAdminTab('orders')">Orders</div>
-      <div class="tab ${tab==='settings'?'active':''}" onclick="setAdminTab('settings')">Payments</div>
-    </div>
     ${tab==='restaurants'?adminRestaurants():''}
     ${tab==='riders'?adminRiders():''}
     ${tab==='offers'?adminOffers():''}
     ${tab==='orders'?adminOrders():''}
-    ${tab==='settings'?adminSettings():''}
+    ${tab==='profile'?adminProfile():''}
   </div>`;
 }
 function setAdminTab(t){ S.adminTab=t; render(); }
+function adminBottomNav(active){
+  const tabs = [
+    {id:'restaurants', icon:'🏬', label:'Restaurants'},
+    {id:'riders', icon:'🛵', label:'Riders'},
+    {id:'offers', icon:'🎁', label:'Offers'},
+    {id:'orders', icon:'📦', label:'Orders'},
+    {id:'profile', icon:'👤', label:'Profile'},
+  ];
+  return `<div class="bottom-nav">
+    ${tabs.map(t=>`<div class="bn-item ${active===t.id?'active':''}" onclick="setAdminTab('${t.id}')">
+      <div class="bn-icon">${t.icon}</div>
+      <div class="bn-label">${t.label}</div>
+    </div>`).join('')}
+  </div>`;
+}
+/* Profile tab: a simple menu leading to Payments (restaurant dues) or Settings (existing UPI/
+   contact/admin-password form) — 'null' shows the menu, otherwise the chosen sub-screen. */
+function adminProfile(){
+  if(S.adminProfileView==='payments') return adminPayments();
+  if(S.adminProfileView==='settings') return adminSettingsScreen();
+  return `
+  <div class="role-grid">
+    <div class="role-card" onclick="setAdminProfileView('payments')">
+      <div class="icon" style="background:#FDF1DC;">💳</div>
+      <div class="txt"><strong>Payments</strong><span>Restaurant dues & settlements</span></div>
+      <div class="arrow">→</div>
+    </div>
+    <div class="role-card" onclick="setAdminProfileView('settings')">
+      <div class="icon" style="background:#EAE3F4;">⚙️</div>
+      <div class="txt"><strong>Settings</strong><span>UPI, contact links & admin password</span></div>
+      <div class="arrow">→</div>
+    </div>
+  </div>
+  <button class="btn btn-ghost" style="margin-top:20px;" onclick="logout()">🚪 Logout</button>`;
+}
+function setAdminProfileView(v){ S.adminProfileView = v; render(); }
+/* Per-restaurant dues: what the admin still owes each restaurant for delivered orders, with a
+   button to mark them settled once actually paid out. */
+function adminPayments(){
+  const rows = DB.restaurants.map(r=>{
+    const owed = DB.orders.filter(o=>o.restaurantId===r.id && o.status==='Delivered' && !o.restaurantSettled);
+    return {r, count:owed.length, total:owed.reduce((s,o)=>s+o.total,0)};
+  });
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+    <div class="back" onclick="setAdminProfileView(null)">←</div>
+    <div style="font-weight:700;font-size:15px;">Restaurant payments</div>
+  </div>
+  <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:14px;">Amount owed to each restaurant for delivered orders. Tap "Clear payments" once you've paid them.</div>
+  ${rows.length===0?`<div class="empty"><div class="big">💳</div>No restaurants yet.</div>`:
+  rows.map(({r,count,total})=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+          <div class="meta" style="font-size:12px;color:var(--muted);margin-top:2px;">${count} delivered order${count===1?'':'s'} unpaid</div>
+        </div>
+        <div class="mono" style="font-weight:700;font-size:16px;color:var(--marigold-dark);">${fmt(total)}</div>
+      </div>
+      ${count>0?`<button class="btn btn-green" style="margin-top:12px;" onclick="confirmClearRestaurantPayments('${r.id}')">✅ Clear payments</button>`:''}
+    </div>`).join('')}`;
+}
+function confirmClearRestaurantPayments(id){
+  const r = restaurantById(id);
+  if(!r || !confirm(`Mark all outstanding delivered-order payments for "${r.name}" as paid?`)) return;
+  clearRestaurantPayments(id);
+}
+async function clearRestaurantPayments(id){
+  try{
+    const {ok, data} = await apiCall(`/api/restaurants/${id}/clear-payments`, jsonPost({}, authHeaders()));
+    if(!ok){ showToast((data&&data.error)||'Could not clear payments.'); return; }
+    await pollShared();
+    showToast('Payments cleared.');
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  DB.orders.forEach(o=>{ if(o.restaurantId===id && o.status==='Delivered') o.restaurantSettled = true; });
+  saveLive();
+  showToast('Payments cleared.');
+  render();
+}
+function adminSettingsScreen(){
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+    <div class="back" onclick="setAdminProfileView(null)">←</div>
+    <div style="font-weight:700;font-size:15px;">Settings</div>
+  </div>
+  ` + adminSettings();
+}
 
 function adminSettings(){
   return `
@@ -2833,6 +2914,7 @@ function render(){
     default: html = screenCustomerRestaurants();
   }
   if(MAIN_TABS.includes(S.screen)) html += bottomNav(S.screen);
+  if(S.screen==='admin-dashboard') html += adminBottomNav(S.adminTab);
   if(S.screen.startsWith('customer-') && S.screen!=='customer-checkout-login') html += floatingSocial();
   if(S.toast){
     html += `<div class="toast" id="toast-el">${S.toast}</div>`;
