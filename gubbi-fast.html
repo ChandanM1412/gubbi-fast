@@ -1889,6 +1889,7 @@ function customerAuthFormHtml(context){
       <div class="field"><label>Phone number</label><input id="authPhone" placeholder="98xxxxxxxx" value="${draft.phone||''}"></div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input id="authPassword" type="password" placeholder="Your password">${pwEyeBtn()}</div></div>
       <button class="btn btn-primary" onclick="submitCustomerLogin('${context}')">Log in</button>
+      <button class="btn btn-ghost" style="margin-top:8px;" onclick="contactForgotPassword()">Forgot password?</button>
     </div>` : `
     <div class="card">
       <div class="field"><label>Your name</label><input id="authName" placeholder="e.g. Anitha Rao" value="${draft.name||''}"></div>
@@ -1903,6 +1904,11 @@ function customerAuthFormHtml(context){
   `;
 }
 function setAuthTab(tab){ S._authTab = tab; render(); }
+function contactForgotPassword(){
+  const phone = (document.getElementById('authPhone')?.value||'').trim();
+  const message = `Hello Gubbi Fast, I forgot my customer password. My phone number is ${phone||'[phone number]'}.`;
+  window.open(`${WHATSAPP_CONTACT_URL}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+}
 function captureAuthDraft(){
   const val = id => { const el=document.getElementById(id); return el ? el.value : undefined; };
   S._authDraft = Object.assign({}, S._authDraft, {
