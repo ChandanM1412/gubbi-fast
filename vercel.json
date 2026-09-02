@@ -1,10 +1,12 @@
 {
   "builds": [
     { "src": "api/index.py", "use": "@vercel/python" },
-    { "src": "gubbi-fast.html", "use": "@vercel/static" }
+    { "src": "gubbi-fast.html", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "api/index.py" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
     { "src": "/(.*)", "dest": "/gubbi-fast.html" }
   ]
 }
