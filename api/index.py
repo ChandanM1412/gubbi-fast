@@ -169,6 +169,18 @@ def _orders_collection():
     return get_db().collection("gubbiFast").document("live").collection("orders")
 
 
+# Menu items also live in their own subcollection ('gubbiFast/catalog/menuItems/{itemId}') rather
+# than a nested dict inside the 'catalog' document — a restaurant with a very large menu (e.g. a
+# grocery/medical store with thousands of SKUs) would otherwise risk pushing that single document
+# past Firestore's 1MB limit and breaking the ENTIRE catalog (every restaurant, not just that one).
+def _menu_collection():
+    return get_db().collection("gubbiFast").document("catalog").collection("menuItems")
+
+
+def _menu_items_for_restaurant(restaurant_id):
+    return [d.to_dict() for d in _menu_collection().where("restaurantId", "==", restaurant_id).stream()]
+
+
 def _live_meta_ref():
     return get_db().collection("gubbiFast").document("live")
 
@@ -214,16 +226,23 @@ def _run_order_mutation(order_id, mutate_fn):
 
 def _seed_catalog_if_missing(catalog_ref):
     data = json.loads(json.dumps(DEFAULT_CATALOG))  # deep copy, keeps DEFAULT_CATALOG pristine
+    seed_menu = data.pop("menu", {})  # menu items are seeded into their own subcollection below
     data["catalogRev"] = 1
     data["seedVersion"] = DEFAULT_CATALOG_SEED_VERSION
     catalog_ref.set(data)
+    menu_ref = _menu_collection()
+    for restaurant_id, items in seed_menu.items():
+        for item in items:
+            menu_ref.document(item["id"]).set(dict(item, restaurantId=restaurant_id))
     creds_ref = get_db().collection("gubbiFast").document("riderCredentials")
     if not creds_ref.get().exists:
         creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RIDER_PASSWORDS.items()})
     return data
 
 
-def _get_catalog():
+def _get_catalog_doc():
+    """Just the small catalog document (restaurants/riders/offers/settings) — no menu items,
+    for callers (like create_order) that only need a single restaurant's own menu."""
     catalog_ref = get_db().collection("gubbiFast").document("catalog")
     snap = catalog_ref.get()
     if snap.exists:
@@ -232,6 +251,15 @@ def _get_catalog():
             return _seed_catalog_if_missing(catalog_ref)
         return data
     return _seed_catalog_if_missing(catalog_ref)
+
+
+def _get_catalog():
+    data = dict(_get_catalog_doc())
+    menu = {}
+    for item in [d.to_dict() for d in _menu_collection().stream()]:
+        menu.setdefault(item.get("restaurantId"), []).append(item)
+    data["menu"] = menu
+    return data
 
 
 def _mutate_catalog(mutate_fn):
@@ -255,12 +283,24 @@ def get_catalog_public():
 @app.get("/api/live")
 def get_live_public():
     meta = _get_live_meta()
-    # Fetched WITHOUT order_by: Firestore silently excludes any document missing the sort field
-    # from an order_by() query, which would hide orders from riders/customers if one ever lacked
-    # '_seq' — sorting/limiting here in Python guarantees every order document is always returned.
-    orders = [d.to_dict() for d in _orders_collection().stream()]
-    orders.sort(key=lambda o: o.get("_seq", 0), reverse=True)
-    orders = orders[:MAX_LIVE_ORDERS_RETURNED]
+    # Reading every order document on every poll would get slow/expensive as order history grows
+    # into the thousands. Instead: (1) all still-in-progress orders, which stays a small set no
+    # matter how much history has piled up, plus (2) only the most recent finished orders, capped.
+    # Two separate simple queries (each using a single filter/order) avoid needing any manual
+    # Firestore composite index.
+    active_snap = _orders_collection().where("status", "not-in", list(_FINISHED_STATUSES)).stream()
+    recent_snap = (
+        _orders_collection()
+        .order_by("_seq", direction=firestore.Query.DESCENDING)
+        .limit(MAX_LIVE_ORDERS_RETURNED)
+        .stream()
+    )
+    by_id = {}
+    for d in active_snap:
+        by_id[d.id] = d.to_dict()
+    for d in recent_snap:
+        by_id.setdefault(d.id, d.to_dict())
+    orders = sorted(by_id.values(), key=lambda o: o.get("_seq", 0), reverse=True)
     return jsonify(
         orders=orders,
         notifications=meta.get("notifications", []),
@@ -448,11 +488,11 @@ def create_order():
     if not restaurant_id or not cart:
         return jsonify(error="restaurantId and cart are required"), 400
 
-    catalog = _get_catalog()
+    catalog = _get_catalog_doc()
     restaurant = next((r for r in catalog.get("restaurants", []) if r.get("id") == restaurant_id), None)
     if not restaurant:
         return jsonify(error="restaurant not found"), 404
-    menu = catalog.get("menu", {}).get(restaurant_id, [])
+    menu = _menu_items_for_restaurant(restaurant_id)
 
     # Prices/total are recomputed from the catalog here, never trusted from the client, so a
     # tampered request can't pay less than the real menu price.
@@ -546,7 +586,7 @@ def confirm_payment(order_id):
 def reject_payment(order_id):
     if not require_admin():
         return jsonify(error="Unauthorized"), 401
-    admin_phone = _get_catalog().get("settings", {}).get("adminPhone", "9123242102")
+    admin_phone = _get_catalog_doc().get("settings", {}).get("adminPhone", "9123242102")
 
     def mutate(order, notifications):
         order["status"] = "PaymentRejected"
@@ -561,7 +601,7 @@ def accept_order(order_id):
     rider_id = (request.get_json(silent=True) or {}).get("riderId", "")
     if not rider_id:
         return jsonify(error="riderId is required"), 400
-    rider = next((r for r in _get_catalog().get("riders", []) if r.get("id") == rider_id), None)
+    rider = next((r for r in _get_catalog_doc().get("riders", []) if r.get("id") == rider_id), None)
     if not rider:
         return jsonify(error="unknown rider"), 404
 
@@ -651,7 +691,6 @@ def add_restaurant():
 
     def mutate(catalog):
         catalog.setdefault("restaurants", []).append(restaurant)
-        catalog.setdefault("menu", {})[restaurant["id"]] = []
 
     _mutate_catalog(mutate)
     return jsonify(ok=True, restaurant=restaurant)
@@ -690,10 +729,17 @@ def delete_restaurant(restaurant_id):
 
     def mutate(catalog):
         catalog["restaurants"] = [r for r in catalog.get("restaurants", []) if r.get("id") != restaurant_id]
-        catalog.setdefault("menu", {}).pop(restaurant_id, None)
         catalog["offers"] = [o for o in catalog.get("offers", []) if o.get("restaurantId") != restaurant_id]
 
     _mutate_catalog(mutate)
+    db = get_db()
+    batch = db.batch()
+    for i, d in enumerate(_menu_collection().where("restaurantId", "==", restaurant_id).stream()):
+        batch.delete(d.reference)
+        if (i + 1) % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+    batch.commit()
     return jsonify(ok=True)
 
 
@@ -708,17 +754,15 @@ def add_menu_item(restaurant_id):
         return jsonify(error="name and price are required"), 400
     item = {
         "id": f"m_{int(time.time() * 1000)}",
+        "restaurantId": restaurant_id,
         "name": name,
         "price": float(price),
         "veg": bool(body.get("veg", True)),
         "emoji": body.get("emoji") or "🍽️",
         "image": body.get("image") or None,
     }
-
-    def mutate(catalog):
-        catalog.setdefault("menu", {}).setdefault(restaurant_id, []).append(item)
-
-    _mutate_catalog(mutate)
+    _menu_collection().document(item["id"]).set(item)
+    _mutate_catalog(lambda catalog: None)  # bump catalogRev so pollers pick up the new item
     return jsonify(ok=True, item=item)
 
 
@@ -727,25 +771,22 @@ def edit_menu_item(restaurant_id, item_id):
     if not require_admin():
         return jsonify(error="Unauthorized"), 401
     body = request.get_json(silent=True) or {}
-    found = {"ok": False}
-
-    def mutate(catalog):
-        for it in catalog.get("menu", {}).get(restaurant_id, []):
-            if it.get("id") == item_id:
-                if "name" in body:
-                    it["name"] = body["name"]
-                if "price" in body:
-                    it["price"] = float(body["price"])
-                if "veg" in body:
-                    it["veg"] = bool(body["veg"])
-                for field in ("emoji", "image"):
-                    if field in body:
-                        it[field] = body[field]
-                found["ok"] = True
-
-    _mutate_catalog(mutate)
-    if not found["ok"]:
+    item_ref = _menu_collection().document(item_id)
+    snap = item_ref.get()
+    if not snap.exists:
         return jsonify(error="menu item not found"), 404
+    it = snap.to_dict()
+    if "name" in body:
+        it["name"] = body["name"]
+    if "price" in body:
+        it["price"] = float(body["price"])
+    if "veg" in body:
+        it["veg"] = bool(body["veg"])
+    for field in ("emoji", "image"):
+        if field in body:
+            it[field] = body[field]
+    item_ref.set(it)
+    _mutate_catalog(lambda catalog: None)  # bump catalogRev so pollers pick up the change
     return jsonify(ok=True)
 
 
@@ -753,12 +794,8 @@ def edit_menu_item(restaurant_id, item_id):
 def delete_menu_item(restaurant_id, item_id):
     if not require_admin():
         return jsonify(error="Unauthorized"), 401
-
-    def mutate(catalog):
-        items = catalog.get("menu", {}).get(restaurant_id, [])
-        catalog.setdefault("menu", {})[restaurant_id] = [it for it in items if it.get("id") != item_id]
-
-    _mutate_catalog(mutate)
+    _menu_collection().document(item_id).delete()
+    _mutate_catalog(lambda catalog: None)  # bump catalogRev so pollers pick up the removal
     return jsonify(ok=True)
 
 
