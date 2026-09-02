@@ -1906,7 +1906,7 @@ function customerAuthFormHtml(context){
 function setAuthTab(tab){ S._authTab = tab; render(); }
 function contactForgotPassword(){
   const phone = (document.getElementById('authPhone')?.value||'').trim();
-  const message = `Hello Gubbi Fast, I forgot my customer password. My phone number is ${phone||'[phone number]'}.`;
+  const message = `Hello Gubbi Fast, I forgot my customer password. Please verify my registered phone number and help me reset it: ${phone||'[phone number]'}.`;
   window.open(`${WHATSAPP_CONTACT_URL}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
 }
 function captureAuthDraft(){
