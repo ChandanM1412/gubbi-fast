@@ -2587,7 +2587,7 @@ function adminMenuEditor(restId){
   const r = restaurantById(restId);
   const items = DB.menu[restId];
   return `
-  <div class="card" style="margin-top:14px;">
+  <div class="card menu-editor-panel" style="margin-top:14px;">
     <div class="section-title" style="margin-top:0;">Menu for ${r.name}</div>
     ${items.map(it=>`
       <div class="list-row">
@@ -3010,6 +3010,14 @@ document.addEventListener('click', function(e){
   if(!S.notifOpen) return;
   if(e.target.closest('.notif-panel') || e.target.closest('.chip')) return;
   S.notifOpen = false;
+  render();
+});
+/* Close the admin restaurant menu editor when tapping blank space below it, back to the plain
+   restaurant list, instead of it staying stuck open with no way to dismiss it. */
+document.addEventListener('click', function(e){
+  if(!S._adminMenuFor) return;
+  if(e.target.closest('.list-row') || e.target.closest('.menu-editor-panel') || e.target.closest('.fab-add')) return;
+  S._adminMenuFor = null;
   render();
 });
 
