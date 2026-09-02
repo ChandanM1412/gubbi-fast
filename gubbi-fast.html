@@ -2582,7 +2582,7 @@ function adminRestaurants(){
     <div class="list-row">
       <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="openAdminMenu('${r.id}')">
         ${restaurantImgTag(r, "swatch").replace('class="swatch"', 'class="swatch" style="object-fit:cover;"')}
-        <div class="li"><strong>${r.name}</strong><span>${DB.menu[r.id].length} menu items · ${r.area} · tap to manage menu</span></div>
+        <div class="li"><strong>${r.name}</strong><span>${(DB.menu[r.id]||[]).length} menu items · ${r.area} · tap to manage menu</span></div>
       </div>
       <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="event.stopPropagation(); openEditRestaurant('${r.id}')">✏️</button>
       <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="event.stopPropagation(); confirmDeleteRestaurant('${r.id}')">Remove</button>
