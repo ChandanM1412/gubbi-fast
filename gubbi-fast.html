@@ -3196,6 +3196,7 @@ function calShiftMonth(key, delta){
   const [y,m] = st.month.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m-1+delta, 1));
   st.month = dt.toISOString().slice(0,7);
+  st.day = null; // the picked day isn't on screen any more, so don't keep its orders listed below
   render();
 }
 function calSelectDay(key, iso){
@@ -3239,7 +3240,9 @@ function ordersDayBrowser(orders, key, cardFn){
   orders.forEach(o=>{ const d = dayOf(o); counts[d] = (counts[d]||0) + 1; });
   const st = calState(key);
   const todays = orders.filter(o=> dayOf(o)===today);
-  const picked = st.day ? orders.filter(o=> dayOf(o)===st.day) : [];
+  // Only list a picked day while its own month is the one on screen.
+  const pickedDay = (st.day && st.day.slice(0,7)===st.month) ? st.day : null;
+  const picked = pickedDay ? orders.filter(o=> dayOf(o)===pickedDay) : [];
   return `
   <div class="section-title">Today · ${todays.length} order${todays.length===1?'':'s'}</div>
   ${todays.length===0
@@ -3247,8 +3250,8 @@ function ordersDayBrowser(orders, key, cardFn){
     : todays.map(card).join('')}
   <div class="section-title">Order history</div>
   ${ordersCalendar(key, counts)}
-  ${st.day ? `
-    <div class="section-title">${st.day===today?'Today':formatDisplayDate(st.day)} · ${picked.length} order${picked.length===1?'':'s'}</div>
+  ${pickedDay ? `
+    <div class="section-title">${pickedDay===today?'Today':formatDisplayDate(pickedDay)} · ${picked.length} order${picked.length===1?'':'s'}</div>
     ${picked.map(card).join('') || `<div class="empty" style="padding:26px 20px;"><div class="big">📭</div>No orders on this date.</div>`}` : ''}`;
 }
 function adminOrders(){
