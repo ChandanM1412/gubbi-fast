@@ -151,3 +151,32 @@ how the app was designed from the start (frictionless demo login) rather than a 
 introduced by this change. Add real authentication (e.g. Firebase Auth with OTP) if you want
 customers/riders to have protected accounts too.
 
+### ⚠️ Set ADMIN_PASSWORD and JWT_SECRET before going live
+
+This repository is public, so the fallback values hardcoded in `api/index.py` — the admin
+password, the JWT signing secret, and the demo rider/restaurant passwords — are readable by
+anyone. Until you override them, **anyone who finds this repo can log in as admin, or forge an
+admin session token**. Set `ADMIN_PASSWORD` and `JWT_SECRET` (a long random string) as
+environment variables on Vercel, redeploy, and change every rider/restaurant password from the
+Admin screens.
+
+### What's already hardened
+
+- Rider and restaurant logins issue a signed session token; order actions (accept / pick up /
+  deliver / location) derive the rider's identity from that token, so posting someone else's
+  `riderId` no longer does anything.
+- Everything a customer types (name, address, phone) is HTML-escaped before being rendered, so a
+  name like `<img src=x onerror=…>` can't run script in the admin's or a rider's browser.
+- Password hashes live in their own Firestore documents that no browser ever reads.
+
+### Still open
+
+- No rate limiting on login endpoints — a 4-character rider/restaurant password can be
+  brute-forced. Use long passwords, or put Vercel's firewall / a WAF in front.
+- Customers still identify themselves by phone number alone on `claim-payment`, so someone could
+  mark another order as "payment claimed" — the admin verifies the money manually anyway.
+- Admin session tokens live in `localStorage`.
+- **You can never stop anyone inspecting the frontend.** The HTML/CSS/JS is downloaded by every
+  visitor's browser by definition; "protection" like disabling right-click or F12 is trivially
+  bypassed. Security comes from the server never trusting the browser, which is the model above.
+

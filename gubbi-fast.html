@@ -313,6 +313,8 @@
   .confirm-yes{background:var(--chili);color:#fff;}
   .confirm-no{background:#fff;color:var(--ink);border-color:var(--line);}
   .confirm-yes:active,.confirm-no:active{transform:scale(0.95);}
+  .url-hint{background:#FDF1DC;border:1px solid #EBD6AC;border-radius:10px;padding:9px 11px;margin-top:8px;
+    font-size:11.5px;line-height:1.45;color:var(--marigold-dark);}
   .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
   .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
   .list-row .li{flex:1;}
@@ -597,7 +599,7 @@ function startRiderLocationSharing(orderId){
     async pos=>{
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
       try{
-        const {ok} = await apiCall(`/api/orders/${orderId}/rider-location`, jsonPost({riderId:S.riderId, lat, lng}));
+        const {ok} = await apiCall(`/api/orders/${orderId}/rider-location`, jsonPost({lat, lng}, riderAuthHeaders()));
         if(ok) return;
       }catch(e){ /* no backend reachable — fall back below */ }
       const o = DB.orders.find(x=>x.id===orderId);
@@ -656,6 +658,7 @@ function jsonReq(method, body, extraHeaders){
   return {method, headers:Object.assign({'Content-Type':'application/json'}, extraHeaders||{}), body: JSON.stringify(body||{})};
 }
 function authHeaders(){ return S.adminToken ? {'Authorization':'Bearer '+S.adminToken} : {}; }
+function riderAuthHeaders(){ return S.riderToken ? {'Authorization':'Bearer '+S.riderToken} : {}; }
 
 async function saveCatalog(){
   try{
@@ -890,10 +893,17 @@ function handleImageUpload(inputEl, previewImgId, targetValueInputId){
         const valueInput = document.getElementById(targetValueInputId);
         if(valueInput) valueInput.value = dataUrl;
       }
+      const kb = Math.round(dataUrl.length * 0.75 / 1024);
+      showToast(`📷 Photo added (~${kb} KB stored in the database). A direct image link would cost almost nothing.`);
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+/* Uploaded photos are kept as base64 data URLs inside Firestore documents, so each one eats
+   hundreds of KB of a 1MB-per-document budget — a pasted link costs only its own length. */
+function imageUrlHint(){
+  return `<div class="url-hint">💡 A link is much lighter than an upload. Right-click any image on the web → "Copy image address" and paste it above. Only upload a photo if you have no link for it.</div>`;
 }
 
 /* ---- live location capture, triggered at "Place order" ---- */
@@ -927,8 +937,8 @@ function logout(){
   localStorage.removeItem('gubbi_rider_session');
   localStorage.removeItem('gubbi_restaurant_session');
   localStorage.removeItem('gubbi_admin_session');
-  S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null, shopId:null,
-       currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
+  S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null, riderToken:null,
+       shopId:null, shopToken:null, currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
   render();
 }
 /* Persists just enough of the logged-in customer's session to survive a page refresh — without
@@ -945,11 +955,11 @@ function saveCustomerSession(){
 /* Same idea as saveCustomerSession, for rider/admin logins — without these, refreshing the page
    while logged in as a rider or admin dropped them straight back to a login screen. */
 function saveRiderSession(){
-  try{ localStorage.setItem('gubbi_rider_session', JSON.stringify({riderId:S.riderId})); }
+  try{ localStorage.setItem('gubbi_rider_session', JSON.stringify({riderId:S.riderId, riderToken:S.riderToken})); }
   catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
 }
 function saveRestaurantSession(){
-  try{ localStorage.setItem('gubbi_restaurant_session', JSON.stringify({shopId:S.shopId})); }
+  try{ localStorage.setItem('gubbi_restaurant_session', JSON.stringify({shopId:S.shopId, shopToken:S.shopToken})); }
   catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
 }
 function saveAdminSession(){
@@ -982,7 +992,7 @@ function restoreRiderSession(){
     if(!raw) return false;
     const sess = JSON.parse(raw);
     if(!sess || !sess.riderId) return false;
-    S.role='rider'; S.riderId=sess.riderId; S.screen='rider-dashboard';
+    S.role='rider'; S.riderId=sess.riderId; S.riderToken=sess.riderToken; S.screen='rider-dashboard';
     return true;
   }catch(e){ return false; }
 }
@@ -992,7 +1002,7 @@ function restoreRestaurantSession(){
     if(!raw) return false;
     const sess = JSON.parse(raw);
     if(!sess || !sess.shopId) return false;
-    S.role='restaurant'; S.shopId=sess.shopId; S.screen='restaurant-dashboard';
+    S.role='restaurant'; S.shopId=sess.shopId; S.shopToken=sess.shopToken; S.screen='restaurant-dashboard';
     return true;
   }catch(e){ return false; }
 }
@@ -1018,6 +1028,12 @@ function cartTotal(){
   },0);
 }
 function fmt(n){ return '₹'+n; }
+/* Names/addresses typed by customers are rendered straight into these HTML templates, so they
+   MUST be escaped — otherwise a name like `<img src=x onerror=…>` would execute in the admin's
+   and rider's browsers the moment they view that order. */
+const _ESC = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>_ESC[c]); }
+function itemSummary(o){ return esc(o.items.map(i=>i.name+' ×'+i.qty).join(', ')); }
 function timeNow(){
   // Explicit timeZone so every visitor sees the same IST time regardless of their device's own timezone.
   return new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', timeZone:'Asia/Kolkata'});
@@ -1197,7 +1213,7 @@ async function clearAllOrders(){
 
 async function acceptOrder(orderId){
   try{
-    const {ok, data} = await apiCall(`/api/orders/${orderId}/accept`, jsonPost({riderId:S.riderId}));
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/accept`, jsonPost({}, riderAuthHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not accept this order.'); return; }
     startRiderLocationSharing(orderId);
     await pollShared();
@@ -1217,7 +1233,7 @@ async function acceptOrder(orderId){
 }
 async function markPickedUp(orderId){
   try{
-    const {ok, data} = await apiCall(`/api/orders/${orderId}/pickup`, jsonPost({riderId:S.riderId}));
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/pickup`, jsonPost({}, riderAuthHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not update this order.'); return; }
     await pollShared();
     showToast('Marked as picked up. Deliver safe!');
@@ -1232,7 +1248,7 @@ async function markPickedUp(orderId){
 }
 async function markDelivered(orderId){
   try{
-    const {ok, data} = await apiCall(`/api/orders/${orderId}/deliver`, jsonPost({riderId:S.riderId}));
+    const {ok, data} = await apiCall(`/api/orders/${orderId}/deliver`, jsonPost({}, riderAuthHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not update this order.'); return; }
     stopRiderLocationSharing();
     await pollShared();
@@ -1495,7 +1511,7 @@ function paymentStatusBanner(o, forAdmin){
   if(o.status==='AwaitingPayment'){
     if(forAdmin) return `<div class="card" style="background:#FDF1DC;border-color:var(--marigold-dark);margin:10px 0;">
       <div style="font-weight:700;font-size:13px;color:var(--marigold-dark);">⏳ Waiting for customer to pay</div>
-      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${esc(o.customerName)} · <a class="linklike" href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a></div>
     </div>`;
     return `<div class="card" style="background:#FDF1DC;border-color:var(--marigold-dark);margin:10px 0;">
       <div style="font-weight:700;font-size:13px;color:var(--marigold-dark);">⏳ Payment not completed yet</div>
@@ -1506,7 +1522,7 @@ function paymentStatusBanner(o, forAdmin){
   if(o.status==='PaymentClaimed'){
     if(forAdmin) return `<div class="card" style="background:#E6EEFB;margin:10px 0;">
       <div style="font-weight:700;font-size:13px;color:#2453A8;">💳 Customer claims they paid</div>
-      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Verify ${fmt(o.total)} in your UPI/bank app before confirming. Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Verify ${fmt(o.total)} in your UPI/bank app before confirming. Customer: ${esc(o.customerName)} · <a class="linklike" href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a></div>
     </div>`;
     return `<div class="card" style="background:#E6EEFB;margin:10px 0;">
       <div style="font-weight:700;font-size:13px;color:#2453A8;">💳 Payment claimed — awaiting verification</div>
@@ -1515,7 +1531,7 @@ function paymentStatusBanner(o, forAdmin){
   }
   if(forAdmin) return `<div class="card" style="background:#FCE9E3;margin:10px 0;">
     <div style="font-weight:700;font-size:13px;color:var(--chili);">⚠️ Marked as payment not received</div>
-    <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${o.customerName} · <a class="linklike" href="tel:${o.customerPhone}">${o.customerPhone}</a></div>
+    <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">Customer: ${esc(o.customerName)} · <a class="linklike" href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a></div>
   </div>`;
   return `<div class="card" style="background:#FCE9E3;margin:10px 0;">
     <div style="font-weight:700;font-size:13px;color:var(--chili);">⚠️ Payment not received</div>
@@ -1597,7 +1613,7 @@ function screenCustomerRestaurants(){
       ${cats.map(c=>`<div class="cat-chip ${cat===c?'active':''}" onclick="setCategory('${c}')">${c}</div>`).join('')}
     </div>
 
-    <h2 style="font-size:18px;margin:18px 0 12px;">Restaurants near ${S._pendingAddress||'you'}</h2>
+    <h2 style="font-size:18px;margin:18px 0 12px;">Restaurants near ${esc(S._pendingAddress)||'you'}</h2>
     ${DB.restaurants.length===0?`<div class="empty"><div class="big">🍽️</div>No restaurants yet — check back soon.</div>`:
     list.length===0?`<div class="empty"><div class="big">🔍</div>No matches. Try a different search or filter.</div>`:
     `<div class="restaurant-grid">${list.map(r=>{
@@ -1695,7 +1711,7 @@ function screenCustomerNotifications(){
     mine.map(n=>`
       <div class="card" style="display:flex;gap:10px;align-items:flex-start;">
         <span style="font-size:18px;">${n.icon}</span>
-        <div><div style="font-size:13.5px;">${n.message}</div><div class="meta" style="font-size:11px;color:var(--muted);margin-top:2px;">${n.time}</div></div>
+        <div><div style="font-size:13.5px;">${esc(n.message)}</div><div class="meta" style="font-size:11px;color:var(--muted);margin-top:2px;">${esc(n.time)}</div></div>
       </div>`).join('')}
   </div>`;
 }
@@ -1705,9 +1721,9 @@ function screenCustomerAccount(){
     ${topbarLogged()}
     <div class="content">
       <div class="card">
-        <div style="font-weight:700;font-size:16px;">${S.customerName}</div>
-        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">${S.customerPhone}</div>
-        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:2px;">📍 ${S._pendingAddress||'No address saved'}</div>
+        <div style="font-weight:700;font-size:16px;">${esc(S.customerName)}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:4px;">${esc(S.customerPhone)}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted);margin-top:2px;">📍 ${esc(S._pendingAddress)||'No address saved'}</div>
       </div>
       <button class="btn btn-outline" onclick="go('customer-orders')">📦 My Orders</button>
       <button class="btn btn-outline" style="margin-top:10px;" onclick="go('customer-change-password')">🔒 Change password</button>
@@ -1721,7 +1737,7 @@ function screenCustomerAccount(){
       <div style="font-size:34px;margin-bottom:6px;">👋</div>
       <div style="font-weight:700;font-size:15px;">Helloo!!</div>
       <div class="meta" style="font-size:12px;color:var(--muted);margin:6px 0 14px;">Log in to book, track orders and get notified about your delivery.</div>
-      <button class="btn btn-primary" onclick="go('customer-login')">Login / Sign up</button>
+      <button class="btn btn-primary" onclick="go('customer-login')">Customer Login / Sign up</button>
     </div>
     <div class="section-title">Other logins</div>
     <div class="role-grid">
@@ -1828,7 +1844,7 @@ function screenCustomerCart(){
     <div class="card">
       <div class="field">
         <label>Deliver to</label>
-        <input id="addrEdit" value="${S._pendingAddress||''}" placeholder="Flat/house no., street, area">
+        <input id="addrEdit" value="${esc(S._pendingAddress)}" placeholder="Flat/house no., street, area">
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="useCurrentLocationForAddress()">📍 Use my current location</button>
@@ -2197,7 +2213,7 @@ function screenCustomerOrders(){
         ${(o.status==='PickedUp'||o.status==='Accepted')?`<div data-map-order="${o.id}" style="height:170px;border-radius:12px;margin:10px 0;background:var(--paper);"></div>`:''}
         ${orderItemThumbs(o)}
         <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
-          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+          ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
           <span class="badge" style="background:var(--green-light);color:var(--green);">💵 ${o.paymentMethod}</span>
@@ -2290,9 +2306,11 @@ async function doRiderLogin(){
     const {ok, data} = await apiCall('/api/riders/login', jsonPost({riderId, password}));
     if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
     localStorage.removeItem('gubbi_customer_session');
+    localStorage.removeItem('gubbi_restaurant_session');
     localStorage.removeItem('gubbi_admin_session');
     S.role='rider';
     S.riderId = riderId;
+    S.riderToken = data && data.token;
     saveRiderSession();
     go('rider-dashboard');
     return;
@@ -2373,7 +2391,7 @@ function screenRiderDashboard(){
         <div class="order-top">
           <div>
             <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
-            <div class="order-id">#${o.id} → ${o.address}</div>
+            <div class="order-id">#${o.id} → ${esc(o.address)}</div>
           </div>
           <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]}</div>
         </div>
@@ -2381,7 +2399,7 @@ function screenRiderDashboard(){
         ${o.status==='PickedUp'?`<div data-map-order="${o.id}" style="height:170px;border-radius:12px;margin:10px 0;background:var(--paper);"></div>`:''}
         ${orderItemThumbs(o)}
         <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
-          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · Customer: ${o.customerName} (${o.customerPhone})
+          ${itemSummary(o)} · Customer: ${esc(o.customerName)} (${esc(o.customerPhone)})
         </div>
         <div class="badge" style="background:var(--green-light);color:var(--green);margin-bottom:8px;">✅ Payment already verified — nothing to collect</div>
         <div style="margin-bottom:10px;">
@@ -2391,7 +2409,7 @@ function screenRiderDashboard(){
           <div class="meta" style="font-size:12px;color:var(--muted);margin-bottom:8px;">🏬 Head to the restaurant counter and collect the order — no directions needed, you know the way.</div>
           <button class="btn btn-dark" onclick="markPickedUp('${o.id}')">Mark picked up from restaurant</button>`:''}
         ${o.status==='PickedUp'?`
-          <a class="btn btn-outline" style="text-decoration:none;margin-bottom:8px;" target="_blank" rel="noopener" href="${mapsLink(o.custLat,o.custLng)}">🧭 Navigate to ${o.customerName} (${o.address})</a>
+          <a class="btn btn-outline" style="text-decoration:none;margin-bottom:8px;" target="_blank" rel="noopener" href="${mapsLink(o.custLat,o.custLng)}">🧭 Navigate to ${esc(o.customerName)} (${esc(o.address)})</a>
           <button class="btn btn-green" onclick="markDelivered('${o.id}')">Mark delivered to customer</button>`:''}
       </div>`;
     }).join('')}` : ''}
@@ -2405,13 +2423,13 @@ function screenRiderDashboard(){
         <div class="order-top">
           <div>
             <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
-            <div class="order-id">#${o.id} · ${r.area} → ${o.address}</div>
+            <div class="order-id">#${o.id} · ${r.area} → ${esc(o.address)}</div>
           </div>
           <div class="status-pill status-Placed">New</div>
         </div>
         ${orderItemThumbs(o)}
         <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
-          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+          ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
         </div>
         <div class="badge" style="background:var(--green-light);color:var(--green);margin-bottom:10px;">✅ Payment verified by admin</div>
         <button class="btn btn-primary" onclick="acceptOrder('${o.id}')">Accept order</button>
@@ -2429,13 +2447,13 @@ function screenRiderDashboard(){
         <div class="order-top">
           <div>
             <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
-            <div class="order-id">#${o.id} · ${r.area} → ${o.address}</div>
+            <div class="order-id">#${o.id} · ${r.area} → ${esc(o.address)}</div>
           </div>
           <div class="status-pill status-Placed">New</div>
         </div>
         ${orderItemThumbs(o)}
         <div class="meta" style="font-size:12px;color:var(--muted);margin:8px 0 6px;">
-          ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+          ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
         </div>
         <div class="badge" style="background:#FDF1DC;color:var(--marigold-dark);">${waitMsg}</div>
       </div>`;
@@ -2456,16 +2474,16 @@ function riderHistoryCardMarkup(o, pct){
       <div class="order-top">
         <div>
           <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
-          <div class="order-id">#${o.id} · ${o.customerName} · ${o.createdAt}</div>
+          <div class="order-id">#${o.id} · ${esc(o.customerName)} · ${esc(o.createdAt)}</div>
         </div>
         <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
       </div>
       ${orderItemThumbs(o)}
       <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
-        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        <span class="badge" style="background:var(--paper);color:var(--muted);">📍 ${o.address}</span>
+        <span class="badge" style="background:var(--paper);color:var(--muted);">📍 ${esc(o.address)}</span>
         ${o.status==='Delivered'?`<span class="badge" style="background:var(--green-light);color:var(--green);">💰 You earned ${fmt(earned)}</span>`:''}
       </div>
     </div>`;
@@ -2525,19 +2543,20 @@ async function doRestaurantLogin(){
   try{
     const {ok, data} = await apiCall('/api/restaurants/login', jsonPost({restaurantId, password}));
     if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
-    enterRestaurantDashboard(restaurantId);
+    enterRestaurantDashboard(restaurantId, data && data.token);
     return;
   }catch(e){ /* no backend reachable — fall back below */ }
   const r = restaurantById(restaurantId);
   if(!r || r.password !== password){ showToast('Incorrect password.'); return; }
   enterRestaurantDashboard(restaurantId);
 }
-function enterRestaurantDashboard(restaurantId){
+function enterRestaurantDashboard(restaurantId, token){
   localStorage.removeItem('gubbi_customer_session');
   localStorage.removeItem('gubbi_rider_session');
   localStorage.removeItem('gubbi_admin_session');
   S.role = 'restaurant';
   S.shopId = restaurantId;
+  S.shopToken = token || null;
   S.restaurantTab = 'orders';
   saveRestaurantSession();
   go('restaurant-dashboard');
@@ -2621,7 +2640,7 @@ function restaurantOrderCardMarkup(o){
       <div class="order-top">
         <div>
           <div style="font-weight:700;font-size:14px;">#${o.id}</div>
-          <div class="order-id">${o.customerName} · ${o.createdAt}</div>
+          <div class="order-id">${esc(o.customerName)} · ${esc(o.createdAt)}</div>
         </div>
         <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
       </div>
@@ -2630,7 +2649,7 @@ function restaurantOrderCardMarkup(o){
         : routeTracker(o.status)}
       ${orderItemThumbs(o)}
       <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
-        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
         ${rider?` · Rider: ${rider.name}`:' · Rider not assigned yet'}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
@@ -2866,6 +2885,7 @@ function adminRestaurants(){
     <div class="field">
       <label>Restaurant image — paste a URL, or upload from device</label>
       <input id="newRImageUrl" placeholder="https://... (optional)" oninput="document.getElementById('newRImgPreview').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
+      ${imageUrlHint()}
       <div class="img-upload-row">
         <img id="newRImgPreview" class="img-preview" src="${dummyImage('🍴','#F2A93B',80,80)}">
         <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="newRImageFile" onchange="handleImageUpload(this,'newRImgPreview')"></label>
@@ -2927,6 +2947,7 @@ function editRestaurantForm(r){
     <div class="field">
       <label>Restaurant image — paste a URL, or upload from device</label>
       <input id="editRImage_${r.id}" value="${r.image||''}" placeholder="https://... (optional)" oninput="document.getElementById('editRImgPreview_${r.id}').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
+      ${imageUrlHint()}
       <div class="img-upload-row">
         <img id="editRImgPreview_${r.id}" class="img-preview" src="${r.image||dummyImage('🍴','#F2A93B',80,80)}">
         <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="editRImageFile_${r.id}" onchange="handleImageUpload(this,'editRImgPreview_${r.id}','editRImage_${r.id}')"></label>
@@ -2979,6 +3000,7 @@ function adminMenuEditor(restId){
       <div class="field">
         <label>Food image — paste a URL, or upload from device</label>
         <input id="newMImageUrl" placeholder="https://... (optional)" oninput="document.getElementById('newMImgPreview').src=this.value||'${dummyImage('🍽️','#2E6B4F',80,80)}'">
+        ${imageUrlHint()}
         <div class="img-upload-row">
           <img id="newMImgPreview" class="img-preview" src="${dummyImage('🍽️','#2E6B4F',80,80)}">
           <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="newMImageFile" onchange="handleImageUpload(this,'newMImgPreview')"></label>
@@ -3019,6 +3041,7 @@ function editMenuItemForm(restId, it){
     <div class="field">
       <label>Food image — paste a URL, or upload from device</label>
       <input id="editMImage_${it.id}" value="${it.image||''}" placeholder="https://... (optional)" oninput="document.getElementById('editMImgPreview_${it.id}').src=this.value||'${dummyImage('🍽️','#2E6B4F',80,80)}'">
+      ${imageUrlHint()}
       <div class="img-upload-row">
         <img id="editMImgPreview_${it.id}" class="img-preview" src="${it.image||dummyImage('🍽️','#2E6B4F',80,80)}">
         <label class="upload-btn">📷 Upload photo<input type="file" accept="image/*" id="editMImageFile_${it.id}" onchange="handleImageUpload(this,'editMImgPreview_${it.id}','editMImage_${it.id}')"></label>
@@ -3216,14 +3239,14 @@ function orderCardMarkup(o){
       <div class="order-top">
         <div>
           <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
-          <div class="order-id">#${o.id} · ${o.customerName} · ${o.createdAt}</div>
+          <div class="order-id">#${o.id} · ${esc(o.customerName)} · ${esc(o.createdAt)}</div>
         </div>
         <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
       </div>
       ${isPaymentPhase?paymentStatusBanner(o, true):routeTracker(o.status)}
       ${orderItemThumbs(o)}
       <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
-        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        ${itemSummary(o)} · <span class="mono">${fmt(o.total)}</span>
         ${rider?` · Rider: ${rider.name}`:' · Unassigned'}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
@@ -3388,7 +3411,7 @@ function topbarLogged(){
         mine.slice(0,12).map(n=>`
         <div class="notif-item">
           <span class="notif-icon">${n.icon}</span>
-          <div class="notif-body"><div>${n.message}</div><div class="notif-time">${n.time}</div></div>
+          <div class="notif-body"><div>${esc(n.message)}</div><div class="notif-time">${esc(n.time)}</div></div>
         </div>`).join('')}
     </div>`:''}
   </div>

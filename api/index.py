@@ -135,6 +135,28 @@ def require_admin():
         return None
 
 
+def _issue_token(role, subject):
+    return jwt.encode(
+        {"role": role, "sub": subject, "exp": int(time.time()) + TOKEN_TTL_SECONDS},
+        JWT_SECRET,
+        algorithm="HS256",
+    )
+
+
+def _token_subject(role):
+    """The id a caller proved they own, or None. Order actions use this instead of trusting a
+    riderId sent in the request body — otherwise anyone could accept/deliver another rider's
+    orders just by posting their id."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    try:
+        payload = jwt.decode(auth[7:], JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+    return payload.get("sub") if payload.get("role") == role else None
+
+
 # IST has no DST, so a fixed UTC+5:30 offset is always correct — avoids depending on the
 # 'tzdata' package (not guaranteed present in every Python runtime) that zoneinfo would need.
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -688,9 +710,9 @@ def reject_payment(order_id):
 
 @app.post("/api/orders/<order_id>/accept")
 def accept_order(order_id):
-    rider_id = (request.get_json(silent=True) or {}).get("riderId", "")
+    rider_id = _token_subject("rider")
     if not rider_id:
-        return jsonify(error="riderId is required"), 400
+        return jsonify(error="Please log in again"), 401
     rider = next((r for r in _get_catalog_doc().get("riders", []) if r.get("id") == rider_id), None)
     if not rider:
         return jsonify(error="unknown rider"), 404
@@ -711,7 +733,9 @@ def accept_order(order_id):
 
 @app.post("/api/orders/<order_id>/pickup")
 def pickup_order(order_id):
-    rider_id = (request.get_json(silent=True) or {}).get("riderId", "")
+    rider_id = _token_subject("rider")
+    if not rider_id:
+        return jsonify(error="Please log in again"), 401
 
     def mutate(order, notifications):
         if order.get("riderId") != rider_id:
@@ -728,7 +752,9 @@ def pickup_order(order_id):
 
 @app.post("/api/orders/<order_id>/deliver")
 def deliver_order(order_id):
-    rider_id = (request.get_json(silent=True) or {}).get("riderId", "")
+    rider_id = _token_subject("rider")
+    if not rider_id:
+        return jsonify(error="Please log in again"), 401
 
     def mutate(order, notifications):
         if order.get("riderId") != rider_id:
@@ -746,7 +772,10 @@ def deliver_order(order_id):
 @app.post("/api/orders/<order_id>/rider-location")
 def rider_location(order_id):
     body = request.get_json(silent=True) or {}
-    rider_id, lat, lng = body.get("riderId", ""), body.get("lat"), body.get("lng")
+    rider_id = _token_subject("rider")
+    if not rider_id:
+        return jsonify(error="Please log in again"), 401
+    lat, lng = body.get("lat"), body.get("lng")
     if lat is None or lng is None:
         return jsonify(error="lat and lng are required"), 400
 
@@ -842,7 +871,7 @@ def restaurant_login():
     stored_hash = creds.get(restaurant_id)
     if not stored_hash or not check_password_hash(stored_hash, password):
         return jsonify(error="Incorrect password"), 401
-    return jsonify(ok=True)
+    return jsonify(ok=True, token=_issue_token("restaurant", restaurant_id))
 
 
 @app.delete("/api/catalog/restaurants/<restaurant_id>")
@@ -970,7 +999,7 @@ def rider_login():
     stored_hash = creds.get(rider_id)
     if not stored_hash or not check_password_hash(stored_hash, password):
         return jsonify(error="Incorrect password"), 401
-    return jsonify(ok=True)
+    return jsonify(ok=True, token=_issue_token("rider", rider_id))
 
 
 @app.post("/api/catalog/riders/<rider_id>/commission")
