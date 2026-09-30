@@ -774,7 +774,10 @@ function renderToastOnly(){
   if(el) el.remove();
 }
 
-function go(screen){ S.screen = screen; S.notifOpen = false; render(); window.scrollTo(0,0); }
+function go(screen){ S.screen = screen; S.notifOpen = false; resetOrderHistoryView(); render(); window.scrollTo(0,0); }
+/* Order-history calendars always open fresh on the current month with no date picked, instead
+   of resurfacing whatever day was tapped the last time this screen/tab was open. */
+function resetOrderHistoryView(){ S._cal = {}; }
 
 /* ---- notifications ---- */
 function pushNotification(audience, targetId, message, icon){
@@ -1645,7 +1648,7 @@ function screenCustomerNotifications(){
   <div class="content">
     <h2 style="font-size:20px;margin-bottom:14px;">Notifications</h2>
     ${!S.role?`<div class="empty"><div class="big">🔔</div>Log in to see updates about your orders.<br><br>
-      <button class="btn btn-outline" style="width:auto;padding:10px 20px;display:inline-flex;" onclick="go('customer-login')">Login / Sign up</button></div>`:
+      <button class="btn btn-outline" style="width:auto;padding:10px 20px;display:inline-flex;" onclick="go('customer-login')">Customer Login / Sign up</button></div>`:
     mine.length===0?`<div class="empty"><div class="big">🔕</div>No notifications yet.</div>`:
     mine.map(n=>`
       <div class="card" style="display:flex;gap:10px;align-items:flex-start;">
@@ -2396,7 +2399,7 @@ function screenRiderDashboard(){
     `}
   </div>`;
 }
-function setRiderTab(t){ S.riderTab = t; render(); }
+function setRiderTab(t){ S.riderTab = t; resetOrderHistoryView(); render(); }
 /* Read-only card used by the rider's History tab — same order, but showing what the rider
    earned on it instead of the admin's payment-verification buttons. */
 function riderHistoryCardMarkup(o, pct){
@@ -2494,7 +2497,7 @@ function enterRestaurantDashboard(restaurantId){
   saveRestaurantSession();
   go('restaurant-dashboard');
 }
-function setRestaurantTab(t){ S.restaurantTab = t; render(); }
+function setRestaurantTab(t){ S.restaurantTab = t; resetOrderHistoryView(); render(); }
 /* The restaurant owner's own view: live orders to prepare, what they've earned, and a
    day-by-day history — read-only, since riders/admin drive the order status. */
 function screenRestaurantDashboard(){
@@ -2651,6 +2654,7 @@ function setAdminTab(t){
   S._showAddRestaurant = false; S._editRestaurantFor = null; S._adminMenuFor = null;
   S._showAddRider = false; S._editRiderFor = null;
   S._showAddOffer = false; S._editOfferFor = null;
+  resetOrderHistoryView();
   render();
 }
 function adminBottomNav(active){
