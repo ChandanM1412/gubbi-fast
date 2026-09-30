@@ -274,6 +274,28 @@
   .stat-clickable:active{transform:scale(0.97);}
   .stat .n{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px;}
   .stat .l{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+  .stat.selected{background:var(--charcoal);}
+  .stat.selected .n{color:var(--marigold);}
+  .stat.selected .l{color:var(--marigold);}
+  /* order-history calendar */
+  .cal{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin-bottom:6px;}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-title{font-weight:700;font-size:14px;font-family:'Bricolage Grotesque',sans-serif;}
+  .cal-nav{width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:700;user-select:none;}
+  .cal-nav:active{transform:scale(0.94);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-dow{text-align:center;font-size:9px;font-weight:700;color:var(--muted);font-family:'IBM Plex Mono',monospace;padding:2px 0 4px;}
+  .cal-day{position:relative;height:36px;display:flex;align-items:center;justify-content:center;
+    border-radius:9px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;background:var(--paper);color:var(--muted);}
+  .cal-day.blank{background:transparent;}
+  .cal-day.has{background:#FDF1DC;color:var(--marigold-dark);font-weight:700;cursor:pointer;}
+  .cal-day.has:active{transform:scale(0.94);}
+  .cal-day.today{box-shadow:inset 0 0 0 2px var(--marigold);}
+  .cal-day.selected{background:var(--charcoal);color:var(--marigold);font-weight:700;}
+  .cal-count{position:absolute;top:-4px;right:-3px;background:var(--chili);color:#fff;font-size:8.5px;font-weight:700;
+    min-width:14px;height:14px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+  .cal-hint{font-size:11px;color:var(--muted);text-align:center;margin:8px 0 2px;font-family:'IBM Plex Mono',monospace;}
   .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
   .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
   .list-row .li{flex:1;}
@@ -723,10 +745,11 @@ async function pollShared(){
 /* ============ SESSION / APP STATE ============ */
 let S = {
   screen: 'customer-restaurants',
-  role: null,           // null (guest) | 'customer' | 'rider' | 'admin'
+  role: null,           // null (guest) | 'customer' | 'rider' | 'restaurant' | 'admin'
   customerName: null,
   customerPhone: null,
   riderId: null,
+  shopId: null,         // restaurant owner's own restaurant id, when logged in as 'restaurant'
   currentRestaurantId: null,
   cart: {},             // itemId -> qty  (cart is per current restaurant)
   adminTab: 'restaurants',
@@ -767,6 +790,7 @@ function pushNotification(audience, targetId, message, icon){
 function mySessionNotifications(){
   if(S.role==='customer') return DB.notifications.filter(n=> n.audience==='customer' && n.targetId===S.customerPhone);
   if(S.role==='rider') return DB.notifications.filter(n=> (n.audience==='rider' && n.targetId===S.riderId) || n.audience==='all-riders');
+  if(S.role==='restaurant') return DB.notifications.filter(n=> n.audience==='restaurant' && n.targetId===S.shopId);
   if(S.role==='admin') return DB.notifications.filter(n=> n.audience==='admin');
   return [];
 }
@@ -881,8 +905,9 @@ function captureLocationThenPlaceOrder(){
 function logout(){
   localStorage.removeItem('gubbi_customer_session');
   localStorage.removeItem('gubbi_rider_session');
+  localStorage.removeItem('gubbi_restaurant_session');
   localStorage.removeItem('gubbi_admin_session');
-  S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null,
+  S = {screen:'customer-restaurants', role:null, customerName:null, customerPhone:null, riderId:null, shopId:null,
        currentRestaurantId:null, cart:{}, adminTab:'restaurants', toast:null};
   render();
 }
@@ -903,6 +928,10 @@ function saveRiderSession(){
   try{ localStorage.setItem('gubbi_rider_session', JSON.stringify({riderId:S.riderId})); }
   catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
 }
+function saveRestaurantSession(){
+  try{ localStorage.setItem('gubbi_restaurant_session', JSON.stringify({shopId:S.shopId})); }
+  catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
+}
 function saveAdminSession(){
   try{ localStorage.setItem('gubbi_admin_session', JSON.stringify({adminToken:S.adminToken})); }
   catch(e){ /* localStorage unavailable — session just won't survive a refresh */ }
@@ -912,6 +941,7 @@ function saveAdminSession(){
 function restoreSession(){
   if(restoreCustomerSession()) return;
   if(restoreRiderSession()) return;
+  if(restoreRestaurantSession()) return;
   restoreAdminSession();
 }
 function restoreCustomerSession(){
@@ -933,6 +963,16 @@ function restoreRiderSession(){
     const sess = JSON.parse(raw);
     if(!sess || !sess.riderId) return false;
     S.role='rider'; S.riderId=sess.riderId; S.screen='rider-dashboard';
+    return true;
+  }catch(e){ return false; }
+}
+function restoreRestaurantSession(){
+  try{
+    const raw = localStorage.getItem('gubbi_restaurant_session');
+    if(!raw) return false;
+    const sess = JSON.parse(raw);
+    if(!sess || !sess.shopId) return false;
+    S.role='restaurant'; S.shopId=sess.shopId; S.screen='restaurant-dashboard';
     return true;
   }catch(e){ return false; }
 }
@@ -1176,9 +1216,9 @@ async function markDelivered(orderId){
   render();
 }
 
-async function addRestaurant(name,cuisine,area,emoji,image){
+async function addRestaurant(name,cuisine,area,emoji,image,password){
   try{
-    const {ok, data} = await apiCall('/api/catalog/restaurants', jsonPost({name,cuisine,area,emoji,image}, authHeaders()));
+    const {ok, data} = await apiCall('/api/catalog/restaurants', jsonPost({name,cuisine,area,emoji,image,password}, authHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not add restaurant.'); return; }
     await pollShared();
     showToast('Restaurant added.');
@@ -1188,7 +1228,8 @@ async function addRestaurant(name,cuisine,area,emoji,image){
   // Jitter slightly off the city-centre fallback so new restaurants still get a valid map pin
   const lat = FALLBACK_LOC.lat + (Math.random()-0.5)*0.04;
   const lng = FALLBACK_LOC.lng + (Math.random()-0.5)*0.04;
-  DB.restaurants.push({id,name,cuisine,area,color:'#F2A93B',emoji: emoji||'🍴', lat, lng, image: image||null});
+  // Local demo mode only: no backend to hash/verify the password server-side (see addRider).
+  DB.restaurants.push({id,name,cuisine,area,color:'#F2A93B',emoji: emoji||'🍴', lat, lng, image: image||null, password});
   DB.menu[id] = [];
   saveCatalog();
   pushNotification('admin', null, `Restaurant "${name}" added to the platform.`, '🏬');
@@ -1197,7 +1238,9 @@ async function addRestaurant(name,cuisine,area,emoji,image){
 }
 async function updateRestaurant(id, fields){
   try{
-    const {ok, data} = await apiCall(`/api/catalog/restaurants/${id}`, jsonReq('PATCH', fields, authHeaders()));
+    const body = Object.assign({}, fields);
+    if(!body.password) delete body.password;
+    const {ok, data} = await apiCall(`/api/catalog/restaurants/${id}`, jsonReq('PATCH', body, authHeaders()));
     if(!ok){ showToast((data&&data.error)||'Could not save changes.'); return; }
     S._editRestaurantFor = null;
     await pollShared();
@@ -1206,7 +1249,9 @@ async function updateRestaurant(id, fields){
   }catch(e){ /* no backend reachable — fall back below */ }
   const r = restaurantById(id);
   if(!r) return;
-  Object.assign(r, fields);
+  const local = Object.assign({}, fields);
+  if(!local.password) delete local.password; // blank means "keep the current password"
+  Object.assign(r, local);
   S._editRestaurantFor = null;
   saveCatalog();
   showToast('Restaurant updated.');
@@ -1641,6 +1686,11 @@ function screenCustomerAccount(){
       <div class="role-card" onclick="go('rider-login')">
         <div class="icon" style="background:#E6EEFB;">🛵</div>
         <div class="txt"><strong>Rider Login</strong><span>Accept & deliver orders</span></div>
+        <div class="arrow">→</div>
+      </div>
+      <div class="role-card" onclick="go('restaurant-login')">
+        <div class="icon" style="background:#FDF1DC;">🏬</div>
+        <div class="txt"><strong>Restaurant Login</strong><span>See your orders & earnings</span></div>
         <div class="arrow">→</div>
       </div>
       <div class="role-card" onclick="go('admin-login')">
@@ -2229,15 +2279,21 @@ function screenRiderDashboard(){
   ${topbarLogged()}
   <div class="content">
     <div class="stat-grid">
-      <div class="stat"><div class="n">${mine.length}</div><div class="l">Active</div></div>
-      <div class="stat"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+      <div class="stat stat-clickable ${tab==='orders'?'selected':''}" onclick="setRiderTab('orders')"><div class="n">${mine.length}</div><div class="l">Active</div></div>
+      <div class="stat stat-clickable ${tab==='history'?'selected':''}" onclick="setRiderTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+      <div class="stat stat-clickable ${tab==='earnings'?'selected':''}" onclick="setRiderTab('earnings')"><div class="n">${fmt(totalEarnings)}</div><div class="l">Earnings</div></div>
     </div>
     <div class="tab-row">
       <div class="tab ${tab==='orders'?'active':''}" onclick="setRiderTab('orders')">Orders</div>
+      <div class="tab ${tab==='history'?'active':''}" onclick="setRiderTab('history')">History</div>
       <div class="tab ${tab==='earnings'?'active':''}" onclick="setRiderTab('earnings')">Earnings</div>
     </div>
 
-    ${tab==='earnings'?`
+    ${tab==='history'?`
+    ${delivered.length===0 && mine.length===0
+      ? `<div class="empty"><div class="big">📭</div>No deliveries yet — accept an order to start your history.</div>`
+      : ordersDayBrowser(DB.orders.filter(o=>o.riderId===S.riderId), 'rider', o=>riderHistoryCardMarkup(o, pct))}
+    ` : tab==='earnings'?`
     <div class="earnings-total">
       <div class="et-label">💰 Total Earnings (${pct}% commission)</div>
       <div class="et-amount">${fmt(totalEarnings)}</div>
@@ -2344,6 +2400,199 @@ function screenRiderDashboard(){
   </div>`;
 }
 function setRiderTab(t){ S.riderTab = t; render(); }
+/* Read-only card used by the rider's History tab — same order, but showing what the rider
+   earned on it instead of the admin's payment-verification buttons. */
+function riderHistoryCardMarkup(o, pct){
+  const r = restaurantById(o.restaurantId);
+  if(!r) return '';
+  const earned = o.status==='Delivered' ? Math.round(o.total*pct/100) : 0;
+  return `
+    <div class="order-card">
+      <div class="order-top">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${r.emoji} ${r.name}</div>
+          <div class="order-id">#${o.id} · ${o.customerName} · ${o.createdAt}</div>
+        </div>
+        <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
+      </div>
+      ${orderItemThumbs(o)}
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
+        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <span class="badge" style="background:var(--paper);color:var(--muted);">📍 ${o.address}</span>
+        ${o.status==='Delivered'?`<span class="badge" style="background:var(--green-light);color:var(--green);">💰 You earned ${fmt(earned)}</span>`:''}
+      </div>
+    </div>`;
+}
+
+/* ---- RESTAURANT OWNER ---- */
+function screenRestaurantLogin(){
+  return `
+  ${backbar('Restaurant login','customer-account')}
+  <div class="content">
+    <div class="card">
+      <div class="field">
+        <label>Restaurant name</label>
+        <input id="shopSearch" placeholder="Type your restaurant name" value="${S._shopSearch||''}" oninput="onShopSearchInput(this.value)" autocomplete="off">
+        <input type="hidden" id="shopSelect" value="${S._shopSelectedId||''}">
+        <div id="shopSuggestions">${shopSuggestionsHtml(S._shopSearch||'')}</div>
+      </div>
+      <div class="field"><label>Password</label><div class="pw-wrap"><input id="shopPassword" type="password" placeholder="Ask admin for your password">${pwEyeBtn()}</div></div>
+      <button class="btn btn-primary" onclick="doRestaurantLogin()">Open my dashboard</button>
+    </div>
+  </div>`;
+}
+function shopSuggestionsHtml(query){
+  const q = query.trim().toLowerCase();
+  if(!q) return '';
+  const matches = DB.restaurants.filter(r=>r.name.toLowerCase().startsWith(q));
+  if(matches.length===0) return `<div class="meta" style="font-size:12px;color:var(--muted);margin-top:6px;">No restaurant name starts with "${query}".</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:180px;overflow-y:auto;">
+    ${matches.map(r=>`<div class="cat-chip ${S._shopSelectedId===r.id?'active':''}" style="width:100%;text-align:left;box-sizing:border-box;" onclick="selectShopSuggestion('${r.id}')">${r.emoji} ${r.name}</div>`).join('')}
+  </div>`;
+}
+function onShopSearchInput(v){
+  S._shopSearch = v;
+  S._shopSelectedId = null;
+  const hiddenEl = document.getElementById('shopSelect');
+  if(hiddenEl) hiddenEl.value = '';
+  const el = document.getElementById('shopSuggestions');
+  if(el) el.innerHTML = shopSuggestionsHtml(v);
+}
+function selectShopSuggestion(id){
+  const r = restaurantById(id);
+  if(!r) return;
+  S._shopSelectedId = id;
+  S._shopSearch = r.name;
+  const searchEl = document.getElementById('shopSearch');
+  if(searchEl) searchEl.value = r.name;
+  const hiddenEl = document.getElementById('shopSelect');
+  if(hiddenEl) hiddenEl.value = id;
+  const el = document.getElementById('shopSuggestions');
+  if(el) el.innerHTML = shopSuggestionsHtml(r.name);
+}
+async function doRestaurantLogin(){
+  const restaurantId = document.getElementById('shopSelect').value;
+  const password = document.getElementById('shopPassword').value;
+  if(!restaurantId){ showToast('Type your restaurant name and pick it from the list.'); return; }
+  if(!password){ showToast('Enter your password.'); return; }
+  try{
+    const {ok, data} = await apiCall('/api/restaurants/login', jsonPost({restaurantId, password}));
+    if(!ok){ showToast((data&&data.error)||'Incorrect password.'); return; }
+    enterRestaurantDashboard(restaurantId);
+    return;
+  }catch(e){ /* no backend reachable — fall back below */ }
+  const r = restaurantById(restaurantId);
+  if(!r || r.password !== password){ showToast('Incorrect password.'); return; }
+  enterRestaurantDashboard(restaurantId);
+}
+function enterRestaurantDashboard(restaurantId){
+  localStorage.removeItem('gubbi_customer_session');
+  localStorage.removeItem('gubbi_rider_session');
+  localStorage.removeItem('gubbi_admin_session');
+  S.role = 'restaurant';
+  S.shopId = restaurantId;
+  S.restaurantTab = 'orders';
+  saveRestaurantSession();
+  go('restaurant-dashboard');
+}
+function setRestaurantTab(t){ S.restaurantTab = t; render(); }
+/* The restaurant owner's own view: live orders to prepare, what they've earned, and a
+   day-by-day history — read-only, since riders/admin drive the order status. */
+function screenRestaurantDashboard(){
+  const shop = restaurantById(S.shopId);
+  if(!shop) return `${topbarLogged()}<div class="content"><div class="empty"><div class="big">🏬</div>Loading your dashboard…</div></div>`;
+  const all = DB.orders.filter(o=>o.restaurantId===S.shopId);
+  const live = all.filter(o=>o.status!=='Delivered' && o.status!=='PaymentRejected');
+  const delivered = all.filter(o=>o.status==='Delivered');
+  const earned = delivered.reduce((s,o)=>s+o.total,0);
+  const unpaid = delivered.filter(o=>!o.restaurantSettled);
+  const unpaidTotal = unpaid.reduce((s,o)=>s+o.total,0);
+  const tab = S.restaurantTab||'orders';
+  return `
+  ${topbarLogged()}
+  <div class="content">
+    <div class="card" style="display:flex;align-items:center;gap:10px;">
+      ${restaurantImgTag(shop, "swatch").replace('class="swatch"', 'class="swatch" style="width:42px;height:42px;border-radius:10px;object-fit:cover;"')}
+      <div><div style="font-weight:700;font-size:15px;">${shop.name}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted);">${shop.cuisine} · ${shop.area}</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat stat-clickable ${tab==='orders'?'selected':''}" onclick="setRestaurantTab('orders')"><div class="n">${live.length}</div><div class="l">Live</div></div>
+      <div class="stat stat-clickable ${tab==='history'?'selected':''}" onclick="setRestaurantTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+      <div class="stat stat-clickable ${tab==='earnings'?'selected':''}" onclick="setRestaurantTab('earnings')"><div class="n">${fmt(earned)}</div><div class="l">Earnings</div></div>
+    </div>
+    <div class="tab-row">
+      <div class="tab ${tab==='orders'?'active':''}" onclick="setRestaurantTab('orders')">Orders</div>
+      <div class="tab ${tab==='history'?'active':''}" onclick="setRestaurantTab('history')">History</div>
+      <div class="tab ${tab==='earnings'?'active':''}" onclick="setRestaurantTab('earnings')">Earnings</div>
+    </div>
+
+    ${tab==='earnings'?`
+    <div class="earnings-total">
+      <div class="et-label">💰 Total earned from delivered orders</div>
+      <div class="et-amount">${fmt(earned)}</div>
+      <div class="et-sub">${delivered.length} delivered order${delivered.length===1?'':'s'} · ${fmt(unpaidTotal)} still to be settled by admin</div>
+    </div>
+    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>No earnings yet — your delivered orders will show up here.</div>`:`
+    <div class="earn-table">
+      <div class="earn-table-head">
+        <div>Order</div><div>Amount</div><div>Payout</div>
+      </div>
+      ${delivered.map(o=>`
+        <div class="earn-table-row">
+          <div class="et-name">#${o.id}</div>
+          <div class="et-val">${fmt(o.total)}</div>
+          <div class="et-val ${o.restaurantSettled?'earn':''}">${o.restaurantSettled?'Settled':'Pending'}</div>
+        </div>`).join('')}
+      <div class="earn-table-row total-row">
+        <div class="et-name">Total</div>
+        <div class="et-val">${fmt(earned)}</div>
+        <div class="et-val earn">${fmt(unpaidTotal)} due</div>
+      </div>
+    </div>`}
+    ` : tab==='history'?`
+    ${all.length===0?`<div class="empty"><div class="big">📭</div>No orders yet.</div>`:ordersDayBrowser(all, 'shop', restaurantOrderCardMarkup)}
+    ` : `
+    <div class="section-title">Orders to prepare</div>
+    ${live.length===0?`<div class="empty"><div class="big">✅</div>Nothing pending right now.</div>`:live.map(restaurantOrderCardMarkup).join('')}
+    `}
+    <button class="btn btn-ghost" style="margin-top:20px;" onclick="logout()">🚪 Logout</button>
+  </div>`;
+}
+function restaurantOrderCardMarkup(o){
+  const rider = o.riderId?riderById(o.riderId):null;
+  // Payment-phase statuses aren't part of the delivery route, and the restaurant has no action
+  // to take on them (admin verifies the money) — so they get a plain note instead of a tracker.
+  const paymentNote = {
+    AwaitingPayment: ['#FDF1DC', 'var(--marigold-dark)', "⏳ Waiting for the customer's payment — don't start preparing yet"],
+    PaymentClaimed: ['#E6EEFB', '#2453A8', '💳 Customer says they paid — admin is verifying it'],
+    PaymentRejected: ['#FCE9E3', 'var(--chili)', '⚠️ Payment was not received — this order was cancelled'],
+  }[o.status];
+  return `
+    <div class="order-card">
+      <div class="order-top">
+        <div>
+          <div style="font-weight:700;font-size:14px;">#${o.id}</div>
+          <div class="order-id">${o.customerName} · ${o.createdAt}</div>
+        </div>
+        <div class="status-pill status-${o.status}">${STATION_LABEL[o.status]||o.status}</div>
+      </div>
+      ${paymentNote
+        ? `<div class="card" style="background:${paymentNote[0]};margin:10px 0;"><div style="font-weight:700;font-size:13px;color:${paymentNote[1]};">${paymentNote[2]}</div></div>`
+        : routeTracker(o.status)}
+      ${orderItemThumbs(o)}
+      <div class="meta" style="font-size:12px;color:var(--muted);margin-top:8px;">
+        ${o.items.map(i=>i.name+' ×'+i.qty).join(', ')} · <span class="mono">${fmt(o.total)}</span>
+        ${rider?` · Rider: ${rider.name}`:' · Rider not assigned yet'}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <span class="badge" style="background:var(--green-light);color:var(--green);">📲 ${o.paymentMethod}</span>
+        ${o.status==='Delivered'?`<span class="badge" style="background:${o.restaurantSettled?'var(--green-light)':'#FDF1DC'};color:${o.restaurantSettled?'var(--green)':'var(--marigold-dark)'};">${o.restaurantSettled?'✅ Settled':'⏳ Payout pending'}</span>`:''}
+      </div>
+    </div>`;
+}
 
 /* ---- ADMIN ---- */
 function screenAdminLogin(){
@@ -2565,6 +2814,7 @@ function adminRestaurants(){
     <div class="field"><label>Cuisine</label><input id="newRCuisine" placeholder="e.g. North Karnataka"></div>
     <div class="field"><label>Area</label><input id="newRArea" placeholder="e.g. B.H. Road, Gubbi"></div>
     <div class="field"><label>Emoji icon (used if no photo is added)</label><input id="newREmoji" placeholder="🍛" maxlength="2"></div>
+    <div class="field"><label>Restaurant login password (tell this to the owner)</label><div class="pw-wrap"><input id="newRPassword" type="password" placeholder="At least 4 characters">${pwEyeBtn()}</div></div>
     <div class="field">
       <label>Restaurant image — paste a URL, or upload from device</label>
       <input id="newRImageUrl" placeholder="https://... (optional)" oninput="document.getElementById('newRImgPreview').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
@@ -2602,6 +2852,8 @@ function toggleAddRestaurant(){
 function submitAddRestaurant(){
   const n = document.getElementById('newRName').value.trim();
   if(!n){ showToast('Enter a restaurant name.'); return; }
+  const pw = document.getElementById('newRPassword').value;
+  if(pw && pw.length<4){ showToast('Restaurant password must be at least 4 characters.'); return; }
   const fileInput = document.getElementById('newRImageFile');
   const image = (fileInput && fileInput.dataset.uploaded) || document.getElementById('newRImageUrl').value.trim() || null;
   S._showAddRestaurant = false;
@@ -2609,7 +2861,8 @@ function submitAddRestaurant(){
     document.getElementById('newRCuisine').value.trim()||'Multi-cuisine',
     document.getElementById('newRArea').value.trim()||'Gubbi',
     document.getElementById('newREmoji').value.trim()||'🍴',
-    image);
+    image,
+    pw);
 }
 function openEditRestaurant(id){ S._editRestaurantFor = (S._editRestaurantFor===id)?null:id; render(); }
 function editRestaurantForm(r){
@@ -2621,6 +2874,7 @@ function editRestaurantForm(r){
     <div class="field"><label>Area</label><input id="editRArea_${r.id}" value="${r.area}"></div>
     <div class="field"><label>Emoji icon</label><input id="editREmoji_${r.id}" value="${r.emoji}" maxlength="2"></div>
     <div class="field"><label>Rating (out of 5)</label><input id="editRRating_${r.id}" type="number" min="1" max="5" step="0.1" value="${ratingFor(r)}"></div>
+    <div class="field"><label>Reset restaurant login password <span style="font-weight:400;color:var(--muted);">(leave blank to keep current)</span></label><div class="pw-wrap"><input id="editRPassword_${r.id}" type="password" placeholder="New password">${pwEyeBtn()}</div></div>
     <div class="field">
       <label>Restaurant image — paste a URL, or upload from device</label>
       <input id="editRImage_${r.id}" value="${r.image||''}" placeholder="https://... (optional)" oninput="document.getElementById('editRImgPreview_${r.id}').src=this.value||'${dummyImage('🍴','#F2A93B',80,80)}'">
@@ -2643,6 +2897,7 @@ function submitEditRestaurant(id){
     emoji: document.getElementById(`editREmoji_${id}`).value.trim(),
     rating: Number(document.getElementById(`editRRating_${id}`).value) || undefined,
     image: document.getElementById(`editRImage_${id}`).value.trim() || null,
+    password: document.getElementById(`editRPassword_${id}`).value || undefined,
   });
 }
 function openAdminMenu(id){ S._adminMenuFor = (S._adminMenuFor===id)? null : id; render(); }
@@ -2896,12 +3151,6 @@ function ordinalDay(n){
   const suffixes=['th','st','nd','rd'], v=n%100;
   return n+(suffixes[(v-20)%10]||suffixes[v]||suffixes[0]);
 }
-function shiftISTDate(offsetDays){
-  const [y,m,d] = todayIST().split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m-1, d));
-  dt.setUTCDate(dt.getUTCDate() + offsetDays);
-  return dt.toISOString().slice(0,10);
-}
 function formatDisplayDate(iso){
   const [y,m,d] = iso.split('-').map(Number);
   return `${MONTH_NAMES[m-1]} ${ordinalDay(d)}, ${y}`;
@@ -2936,31 +3185,83 @@ function orderCardMarkup(o){
       </div>`:''}
     </div>`;
 }
-/* Admin sees thousands of orders/day at scale, so orders are grouped into day-by-day sections
-   (newest day first, "Today"/"Yesterday" labeled) with that day's orders shown directly
-   underneath — no drill-down click needed. Orders from before 'createdDate' existed fall under
-   today's date instead of a separate 'Unknown' bucket. */
+/* Admin sees thousands of orders/day at scale, so the Orders tab shows only TODAY's orders up
+   front, with a month calendar underneath: days that actually have orders are highlighted with
+   their order count, and tapping one reveals just that day's orders. The same browser is reused
+   by the rider History tab and the restaurant History tab via `cardFn`. */
+const DOW_LABELS = ['S','M','T','W','T','F','S'];
+function calState(key){
+  S._cal = S._cal || {};
+  if(!S._cal[key]) S._cal[key] = {month: todayIST().slice(0,7), day: null};
+  return S._cal[key];
+}
+function calShiftMonth(key, delta){
+  const st = calState(key);
+  const [y,m] = st.month.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m-1+delta, 1));
+  st.month = dt.toISOString().slice(0,7);
+  render();
+}
+function calSelectDay(key, iso){
+  const st = calState(key);
+  st.day = (st.day===iso) ? null : iso;
+  render();
+}
+function ordersCalendar(key, countsByDate){
+  const st = calState(key);
+  const today = todayIST();
+  const [y,m] = st.month.split('-').map(Number);
+  const startDow = new Date(Date.UTC(y, m-1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const cells = [];
+  for(let i=0;i<startDow;i++) cells.push('<div class="cal-day blank"></div>');
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const n = countsByDate[iso] || 0;
+    const cls = ['cal-day', n?'has':'', iso===today?'today':'', st.day===iso?'selected':''].filter(Boolean).join(' ');
+    cells.push(`<div class="${cls}" ${n?`onclick="calSelectDay('${key}','${iso}')"`:''}>${d}${n?`<span class="cal-count">${n}</span>`:''}</div>`);
+  }
+  return `
+  <div class="cal">
+    <div class="cal-head">
+      <div class="cal-nav" onclick="calShiftMonth('${key}',-1)">‹</div>
+      <div class="cal-title">${MONTH_NAMES[m-1]} ${y}</div>
+      <div class="cal-nav" onclick="calShiftMonth('${key}',1)">›</div>
+    </div>
+    <div class="cal-grid">
+      ${DOW_LABELS.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
+      ${cells.join('')}
+    </div>
+  </div>
+  <div class="cal-hint">Tap a highlighted date to see that day's orders</div>`;
+}
+function ordersDayBrowser(orders, key, cardFn){
+  const today = todayIST();
+  const card = cardFn || orderCardMarkup;
+  const dayOf = o => o.createdDate || today;
+  const counts = {};
+  orders.forEach(o=>{ const d = dayOf(o); counts[d] = (counts[d]||0) + 1; });
+  const st = calState(key);
+  const todays = orders.filter(o=> dayOf(o)===today);
+  const picked = st.day ? orders.filter(o=> dayOf(o)===st.day) : [];
+  return `
+  <div class="section-title">Today · ${todays.length} order${todays.length===1?'':'s'}</div>
+  ${todays.length===0
+    ? `<div class="empty" style="padding:26px 20px;"><div class="big">📦</div>No orders today yet.</div>`
+    : todays.map(card).join('')}
+  <div class="section-title">Order history</div>
+  ${ordersCalendar(key, counts)}
+  ${st.day ? `
+    <div class="section-title">${st.day===today?'Today':formatDisplayDate(st.day)} · ${picked.length} order${picked.length===1?'':'s'}</div>
+    ${picked.map(card).join('') || `<div class="empty" style="padding:26px 20px;"><div class="big">📭</div>No orders on this date.</div>`}` : ''}`;
+}
 function adminOrders(){
   if(DB.orders.length===0) return `<div class="empty"><div class="big">📦</div>No orders placed yet.</div>`;
-  const today = todayIST();
-  const yesterday = shiftISTDate(-1);
-  const map = {};
-  DB.orders.forEach(o=>{
-    const d = o.createdDate || today;
-    map[d] = map[d] || [];
-    map[d].push(o);
-  });
-  const dates = Object.keys(map).sort((a,b)=> b.localeCompare(a));
   return `
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
     <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmClearAllOrders()">Clear all orders</button>
   </div>
-  ` + dates.map(d=>{
-    const orders = map[d];
-    const label = d===today ? 'Today' : d===yesterday ? 'Yesterday' : formatDisplayDate(d);
-    return `<div class="section-title">${label} · ${orders.length} order${orders.length===1?'':'s'}</div>`
-      + orders.map(orderCardMarkup).join('');
-  }).join('');
+  ` + ordersDayBrowser(DB.orders, 'admin');
 }
 
 /* ============ SHARED CHROME ============ */
@@ -2975,7 +3276,7 @@ function backbar(title, backScreen){
 function topbarLogged(){
   const unread = unreadNotifCount();
   const mine = mySessionNotifications();
-  const showLogout = S.role==='rider' || S.role==='admin';
+  const showLogout = S.role==='rider' || S.role==='restaurant' || S.role==='admin';
   return `
   <div class="topbar" style="position:relative;">
     <div class="brand" onclick="go('customer-restaurants')"><div class="mark">🛵</div><div><div class="brand-name" style="font-size:16px;">GUBBI FAST</div><div class="brand-tag">Food · Medical · Groceries · More</div></div></div>
@@ -3019,6 +3320,8 @@ function render(){
     case 'customer-orders': html = screenCustomerOrders(); break;
     case 'rider-login': html = screenRiderLogin(); break;
     case 'rider-dashboard': html = screenRiderDashboard(); break;
+    case 'restaurant-login': html = screenRestaurantLogin(); break;
+    case 'restaurant-dashboard': html = screenRestaurantDashboard(); break;
     case 'admin-login': html = screenAdminLogin(); break;
     case 'admin-dashboard': html = screenAdminDashboard(); break;
     default: html = screenCustomerRestaurants();

@@ -96,6 +96,7 @@ DEFAULT_CATALOG = {
     },
 }
 DEFAULT_RIDER_PASSWORDS = {"rd1": "rider123", "rd2": "rider123", "rd3": "rider123"}
+DEFAULT_RESTAURANT_PASSWORDS = {"r1": "shop123", "r2": "shop123", "r3": "shop123", "r4": "shop123"}
 
 _db = None
 
@@ -182,6 +183,12 @@ def _menu_items_for_restaurant(restaurant_id):
     return [d.to_dict() for d in _menu_collection().where("restaurantId", "==", restaurant_id).stream()]
 
 
+# Restaurant owner login passwords — kept in their own document (like rider/customer ones) so a
+# hash is never part of the 'catalog' document the browser reads.
+def _restaurant_creds_ref():
+    return get_db().collection("gubbiFast").document("restaurantCredentials")
+
+
 def _live_meta_ref():
     return get_db().collection("gubbiFast").document("live")
 
@@ -238,6 +245,9 @@ def _seed_catalog_if_missing(catalog_ref):
     creds_ref = get_db().collection("gubbiFast").document("riderCredentials")
     if not creds_ref.get().exists:
         creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RIDER_PASSWORDS.items()})
+    rest_creds_ref = _restaurant_creds_ref()
+    if not rest_creds_ref.get().exists:
+        rest_creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RESTAURANT_PASSWORDS.items()})
     return data
 
 
@@ -577,10 +587,12 @@ def create_order():
     if is_cod:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} placed at {restaurant['name']} — pay ₹{total} cash on delivery.", "🧾")
         _notify(notifications, "admin", None, f"New order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} (COD).", "🆕")
+        _notify(notifications, "restaurant", restaurant_id, f"New order #{order_id} — ₹{total} (COD). Please start preparing it.", "🆕")
         _notify(notifications, "all-riders", None, f"New order #{order_id} available for pickup near {restaurant.get('area','')}.", "📦")
     else:
         _notify(notifications, "customer", customer_phone, f"Order #{order_id} created at {restaurant['name']} — complete UPI payment to confirm it.", "🧾")
         _notify(notifications, "admin", None, f"Order #{order_id} from {customer_name} at {restaurant['name']} — ₹{total} — awaiting payment.", "⏳")
+        _notify(notifications, "restaurant", restaurant_id, f"Order #{order_id} — ₹{total} — waiting for the customer's payment.", "⏳")
 
     _orders_collection().document(order_id).set(order)
     meta["notifications"] = notifications[:MAX_STORED_NOTIFICATIONS]
@@ -616,6 +628,8 @@ def confirm_payment(order_id):
         order["riderApproved"] = True  # admin already reviewed this order to confirm the payment
         _notify(notifications, "customer", order.get("customerPhone"),
                 f"Payment confirmed for order #{order['id']}. Your food is being prepared!", "✅")
+        _notify(notifications, "restaurant", order.get("restaurantId"),
+                f"Payment confirmed for order #{order['id']} — please start preparing it.", "✅")
         _notify(notifications, "all-riders", None, f"✅ Order #{order['id']} approved and available for pickup.", "📦")
 
     return _run_order_mutation(order_id, mutate)
@@ -651,6 +665,8 @@ def accept_order(order_id):
         order["riderId"] = rider_id
         _notify(notifications, "customer", order.get("customerPhone"),
                 f"{rider['name']} accepted your order #{order['id']} and is heading to the restaurant.", "🛵")
+        _notify(notifications, "restaurant", order.get("restaurantId"),
+                f"Rider {rider['name']} is on the way to collect order #{order['id']}.", "🛵")
         _notify(notifications, "admin", None, f"Order #{order['id']} accepted by rider {rider['name']}.", "✅")
 
     return _run_order_mutation(order_id, mutate)
@@ -684,6 +700,7 @@ def deliver_order(order_id):
             raise ValueError("order isn't out for delivery")
         order["status"] = "Delivered"
         _notify(notifications, "customer", order.get("customerPhone"), f"Order #{order['id']} delivered. Enjoy your meal!", "🎉")
+        _notify(notifications, "restaurant", order.get("restaurantId"), f"Order #{order['id']} was delivered — ₹{order.get('total', 0)} added to your earnings.", "🎉")
         _notify(notifications, "admin", None, f"Order #{order['id']} delivered successfully.", "✅")
 
     return _run_order_mutation(order_id, mutate)
@@ -716,6 +733,9 @@ def add_restaurant():
     name = (body.get("name") or "").strip()
     if not name:
         return jsonify(error="name is required"), 400
+    password = body.get("password") or ""
+    if password and len(password) < 4:
+        return jsonify(error="password must be at least 4 characters"), 400
     restaurant = {
         "id": f"r_{int(time.time() * 1000)}",
         "name": name,
@@ -732,6 +752,12 @@ def add_restaurant():
         catalog.setdefault("restaurants", []).append(restaurant)
 
     _mutate_catalog(mutate)
+    if password:
+        creds_ref = _restaurant_creds_ref()
+        snap = creds_ref.get()
+        creds = snap.to_dict() if snap.exists else {}
+        creds[restaurant["id"]] = generate_password_hash(password)
+        creds_ref.set(creds)
     return jsonify(ok=True, restaurant=restaurant)
 
 
@@ -758,6 +784,28 @@ def edit_restaurant(restaurant_id):
     _mutate_catalog(mutate)
     if not found["ok"]:
         return jsonify(error="restaurant not found"), 404
+    new_password = body.get("password")
+    if new_password:
+        if len(new_password) < 4:
+            return jsonify(error="password must be at least 4 characters"), 400
+        creds_ref = _restaurant_creds_ref()
+        snap = creds_ref.get()
+        creds = snap.to_dict() if snap.exists else {}
+        creds[restaurant_id] = generate_password_hash(new_password)
+        creds_ref.set(creds)
+    return jsonify(ok=True)
+
+
+@app.post("/api/restaurants/login")
+def restaurant_login():
+    body = request.get_json(silent=True) or {}
+    restaurant_id = body.get("restaurantId") or ""
+    password = body.get("password") or ""
+    snap = _restaurant_creds_ref().get()
+    creds = snap.to_dict() if snap.exists else {}
+    stored_hash = creds.get(restaurant_id)
+    if not stored_hash or not check_password_hash(stored_hash, password):
+        return jsonify(error="Incorrect password"), 401
     return jsonify(ok=True)
 
 
@@ -771,6 +819,12 @@ def delete_restaurant(restaurant_id):
         catalog["offers"] = [o for o in catalog.get("offers", []) if o.get("restaurantId") != restaurant_id]
 
     _mutate_catalog(mutate)
+    creds_ref = _restaurant_creds_ref()
+    creds_snap = creds_ref.get()
+    if creds_snap.exists:
+        creds = creds_snap.to_dict()
+        creds.pop(restaurant_id, None)
+        creds_ref.set(creds)
     db = get_db()
     batch = db.batch()
     for i, d in enumerate(_menu_collection().where("restaurantId", "==", restaurant_id).stream()):

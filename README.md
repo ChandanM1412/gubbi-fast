@@ -79,6 +79,16 @@ both in single-device demo mode and once deployed with Firebase configured (the 
 their password hashes the first time `GET /api/catalog` runs). Add real riders through Admin for
 production use.
 
+## 4b. Restaurant owner logins
+
+**Account → Restaurant Login** lets a restaurant owner sign in to their own read-only dashboard:
+live orders to prepare, a day-by-day order history, and total earnings (with what the admin still
+owes them). Admin sets the password in **Admin → Restaurants → Add a restaurant**, or resets it
+later via the ✏️ Edit form. Hashes live in their own `restaurantCredentials` Firestore doc, so
+they're never part of the catalog the browser reads.
+
+The 4 seeded demo restaurants all use `shop123`.
+
 ## 5. Admin can now edit and delete everything
 
 **Admin → Restaurants/Riders/Offers** now has ✏️ Edit and 🗑️ Delete/Remove next to every
