@@ -189,6 +189,19 @@ def _restaurant_creds_ref():
     return get_db().collection("gubbiFast").document("restaurantCredentials")
 
 
+def _ensure_restaurant_creds():
+    """Returns the credentials dict, creating it with the demo defaults if it doesn't exist yet.
+    Needed because catalogs seeded before restaurant logins existed never got this document, and
+    _seed_catalog_if_missing won't run again for them — without this, no restaurant could log in."""
+    ref = _restaurant_creds_ref()
+    snap = ref.get()
+    if snap.exists:
+        return snap.to_dict()
+    creds = {rid: generate_password_hash(pw) for rid, pw in DEFAULT_RESTAURANT_PASSWORDS.items()}
+    ref.set(creds)
+    return creds
+
+
 def _live_meta_ref():
     return get_db().collection("gubbiFast").document("live")
 
@@ -245,9 +258,7 @@ def _seed_catalog_if_missing(catalog_ref):
     creds_ref = get_db().collection("gubbiFast").document("riderCredentials")
     if not creds_ref.get().exists:
         creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RIDER_PASSWORDS.items()})
-    rest_creds_ref = _restaurant_creds_ref()
-    if not rest_creds_ref.get().exists:
-        rest_creds_ref.set({rid: generate_password_hash(pw) for rid, pw in DEFAULT_RESTAURANT_PASSWORDS.items()})
+    _ensure_restaurant_creds()
     return data
 
 
@@ -801,8 +812,7 @@ def restaurant_login():
     body = request.get_json(silent=True) or {}
     restaurant_id = body.get("restaurantId") or ""
     password = body.get("password") or ""
-    snap = _restaurant_creds_ref().get()
-    creds = snap.to_dict() if snap.exists else {}
+    creds = _ensure_restaurant_creds()
     stored_hash = creds.get(restaurant_id)
     if not stored_hash or not check_password_hash(stored_hash, password):
         return jsonify(error="Incorrect password"), 401
