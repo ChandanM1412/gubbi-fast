@@ -171,6 +171,32 @@ def _orders_collection():
     return get_db().collection("gubbiFast").document("live").collection("orders")
 
 
+def _restaurant_code(name):
+    """Order-number prefix from a restaurant's initials: 'Gubbi Tiffin House' -> GT, 'Royals
+    Food' -> RF, single-word names -> their first two letters."""
+    cleaned = "".join(c if (c.isalnum() or c.isspace()) else " " for c in (name or ""))
+    words = cleaned.split()
+    if not words:
+        return "GF"
+    if len(words) == 1:
+        return words[0][:2].upper()
+    return (words[0][0] + words[1][0]).upper()
+
+
+def _next_order_id(meta, restaurant_name):
+    """Counters are keyed by the prefix rather than the restaurant id, so two restaurants that
+    share initials still get unique, non-colliding order numbers."""
+    prefix = _restaurant_code(restaurant_name)
+    counters = meta.get("restaurantSeq") or {}
+    number = int(counters.get(prefix, 0)) + 1
+    orders = _orders_collection()
+    while orders.document(f"{prefix}{number}").get().exists:
+        number += 1
+    counters[prefix] = number
+    meta["restaurantSeq"] = counters
+    return f"{prefix}{number}"
+
+
 # Menu items also live in their own subcollection ('gubbiFast/catalog/menuItems/{itemId}') rather
 # than a nested dict inside the 'catalog' document — a restaurant with a very large menu (e.g. a
 # grocery/medical store with thousands of SKUs) would otherwise risk pushing that single document
@@ -571,7 +597,7 @@ def create_order():
 
     meta = _get_live_meta()
     order_seq = meta.get("orderSeq", 1001)
-    order_id = f"GF{order_seq}"
+    order_id = _next_order_id(meta, restaurant.get("name"))
     order = {
         "id": order_id,
         "_seq": order_seq,

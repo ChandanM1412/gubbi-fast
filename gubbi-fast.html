@@ -298,6 +298,9 @@
   .hist-btn{flex:0 0 auto;padding:8px 13px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);
     color:var(--ink);font-size:11.5px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap;}
   .hist-btn:active{transform:scale(0.96);}
+  .day-total{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--paper);
+    border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;font-weight:700;}
+  .day-total .mono{font-family:'IBM Plex Mono',monospace;color:var(--marigold-dark);}
   .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
   .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
   .list-row .li{flex:1;}
@@ -1014,6 +1017,22 @@ function todayIST(){
 }
 function restaurantById(id){ return DB.restaurants.find(r=>r.id===id); }
 function riderById(id){ return DB.riders.find(r=>r.id===id); }
+/* Mirrors the backend's order-numbering (api/index.py: _restaurant_code): 'Gubbi Tiffin House'
+   -> GT1, GT2…, 'Royals Food' -> RF1… Used only by the local demo fallback. */
+function restaurantCode(name){
+  const words = String(name||'').replace(/[^a-z0-9\s]/gi,' ').split(/\s+/).filter(Boolean);
+  if(words.length===0) return 'GF';
+  if(words.length===1) return words[0].slice(0,2).toUpperCase();
+  return (words[0][0]+words[1][0]).toUpperCase();
+}
+function nextLocalOrderId(restaurantId){
+  const r = restaurantById(restaurantId);
+  const prefix = restaurantCode(r && r.name);
+  let n = 1;
+  while(DB.orders.some(o=>o.id===prefix+n)) n++;
+  DB.orderSeq++;
+  return prefix + n;
+}
 
 /* Order lifecycle for UPI: AwaitingPayment -> (PaymentClaimed) -> Placed -> Accepted -> PickedUp -> Delivered
    (or PaymentRejected, a dead end). Cash on Delivery skips straight to Placed since no upfront
@@ -1051,7 +1070,7 @@ function placeOrderLocal(isCod){
     return {itemId:id, name:it.name, qty, price:it.price};
   });
   const order = {
-    id: 'GF' + (DB.orderSeq++),
+    id: nextLocalOrderId(S.currentRestaurantId),
     restaurantId: S.currentRestaurantId,
     items: orderItems,
     total: cartTotal(),
@@ -2277,16 +2296,19 @@ function screenRiderDashboard(){
   const available = DB.orders.filter(o=>o.status==='Placed' && o.riderApproved);
   const pendingApproval = DB.orders.filter(o=>o.status==='AwaitingPayment' || o.status==='PaymentClaimed');
   const mine = DB.orders.filter(o=>o.riderId===S.riderId && o.status!=='Delivered');
-  const delivered = DB.orders.filter(o=>o.riderId===S.riderId && o.status==='Delivered');
-  const totalEarnings = delivered.reduce((s,o)=>s+Math.round(o.total*pct/100),0);
+  // Delivered/earnings are a fresh daily tally — previous days live on in the History tab.
+  const today = todayIST();
+  const myOrders = DB.orders.filter(o=>o.riderId===S.riderId);
+  const delivered = myOrders.filter(o=>o.status==='Delivered' && (o.createdDate||today)===today);
+  const totalEarnings = riderEarnings(delivered, pct);
   const tab = S.riderTab||'orders';
   return `
   ${topbarLogged()}
   <div class="content">
     <div class="stat-grid">
       <div class="stat stat-clickable" onclick="setRiderTab('orders')"><div class="n">${mine.length}</div><div class="l">Active</div></div>
-      <div class="stat stat-clickable" onclick="setRiderTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
-      <div class="stat stat-clickable" onclick="setRiderTab('earnings')"><div class="n">${fmt(totalEarnings)}</div><div class="l">Earnings</div></div>
+      <div class="stat stat-clickable" onclick="setRiderTab('history')"><div class="n">${delivered.length}</div><div class="l">Today delivered</div></div>
+      <div class="stat stat-clickable" onclick="setRiderTab('earnings')"><div class="n">${fmt(totalEarnings)}</div><div class="l">Today earned</div></div>
     </div>
     <div class="tab-row">
       <div class="tab ${tab==='orders'?'active':''}" onclick="setRiderTab('orders')">Orders</div>
@@ -2295,16 +2317,16 @@ function screenRiderDashboard(){
     </div>
 
     ${tab==='history'?`
-    ${delivered.length===0 && mine.length===0
+    ${myOrders.length===0
       ? `<div class="empty"><div class="big">📭</div>No deliveries yet — accept an order to start your history.</div>`
-      : ordersDayBrowser(DB.orders.filter(o=>o.riderId===S.riderId), 'rider', o=>riderHistoryCardMarkup(o, pct))}
+      : ordersDayBrowser(myOrders, 'rider', o=>riderHistoryCardMarkup(o, pct), day=>riderDayTotal(day, pct))}
     ` : tab==='earnings'?`
     <div class="earnings-total">
-      <div class="et-label">💰 Total Earnings (${pct}% commission)</div>
+      <div class="et-label">💰 Today's Earnings (${pct}% commission)</div>
       <div class="et-amount">${fmt(totalEarnings)}</div>
-      <div class="et-sub">${delivered.length} delivered order${delivered.length===1?'':'s'} · rate set by admin</div>
+      <div class="et-sub">${delivered.length} delivered today · earlier days are in History</div>
     </div>
-    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>No earnings yet — deliver an order to see it here.</div>`:`
+    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>Nothing earned today yet — deliver an order to see it here.</div>`:`
     <div class="earn-table">
       <div class="earn-table-head">
         <div>Order</div><div>Order Price</div><div>Your Earning</div>
@@ -2510,10 +2532,12 @@ function screenRestaurantDashboard(){
   if(!shop) return `${topbarLogged()}<div class="content"><div class="empty"><div class="big">🏬</div>Loading your dashboard…</div></div>`;
   const all = DB.orders.filter(o=>o.restaurantId===S.shopId);
   const live = all.filter(o=>o.status!=='Delivered' && o.status!=='PaymentRejected');
-  const delivered = all.filter(o=>o.status==='Delivered');
+  // Delivered/earnings are a fresh daily tally — previous days live on in the History tab. The
+  // outstanding payout stays all-time, since that's money the admin genuinely still owes.
+  const today = todayIST();
+  const delivered = all.filter(o=>o.status==='Delivered' && (o.createdDate||today)===today);
   const earned = delivered.reduce((s,o)=>s+o.total,0);
-  const unpaid = delivered.filter(o=>!o.restaurantSettled);
-  const unpaidTotal = unpaid.reduce((s,o)=>s+o.total,0);
+  const unpaidTotal = all.filter(o=>o.status==='Delivered' && !o.restaurantSettled).reduce((s,o)=>s+o.total,0);
   const tab = S.restaurantTab||'orders';
   return `
   ${topbarLogged()}
@@ -2525,8 +2549,8 @@ function screenRestaurantDashboard(){
     </div>
     <div class="stat-grid">
       <div class="stat stat-clickable" onclick="setRestaurantTab('orders')"><div class="n">${live.length}</div><div class="l">Live</div></div>
-      <div class="stat stat-clickable" onclick="setRestaurantTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
-      <div class="stat stat-clickable" onclick="setRestaurantTab('earnings')"><div class="n">${fmt(earned)}</div><div class="l">Earnings</div></div>
+      <div class="stat stat-clickable" onclick="setRestaurantTab('history')"><div class="n">${delivered.length}</div><div class="l">Today delivered</div></div>
+      <div class="stat stat-clickable" onclick="setRestaurantTab('earnings')"><div class="n">${fmt(earned)}</div><div class="l">Today earned</div></div>
     </div>
     <div class="tab-row">
       <div class="tab ${tab==='orders'?'active':''}" onclick="setRestaurantTab('orders')">Orders</div>
@@ -2536,11 +2560,11 @@ function screenRestaurantDashboard(){
 
     ${tab==='earnings'?`
     <div class="earnings-total">
-      <div class="et-label">💰 Total earned from delivered orders</div>
+      <div class="et-label">💰 Today's earnings</div>
       <div class="et-amount">${fmt(earned)}</div>
-      <div class="et-sub">${delivered.length} delivered order${delivered.length===1?'':'s'} · ${fmt(unpaidTotal)} still to be settled by admin</div>
+      <div class="et-sub">${delivered.length} delivered today · ${fmt(unpaidTotal)} still to be settled by admin (all time)</div>
     </div>
-    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>No earnings yet — your delivered orders will show up here.</div>`:`
+    ${delivered.length===0?`<div class="empty"><div class="big">💰</div>Nothing earned today yet — earlier days are in History.</div>`:`
     <div class="earn-table">
       <div class="earn-table-head">
         <div>Order</div><div>Amount</div><div>Payout</div>
@@ -2558,7 +2582,7 @@ function screenRestaurantDashboard(){
       </div>
     </div>`}
     ` : tab==='history'?`
-    ${all.length===0?`<div class="empty"><div class="big">📭</div>No orders yet.</div>`:ordersDayBrowser(all, 'shop', restaurantOrderCardMarkup)}
+    ${all.length===0?`<div class="empty"><div class="big">📭</div>No orders yet.</div>`:ordersDayBrowser(all, 'shop', restaurantOrderCardMarkup, shopDayTotal)}
     ` : `
     <div class="section-title">Orders to prepare</div>
     ${live.length===0?`<div class="empty"><div class="big">✅</div>Nothing pending right now.</div>`:live.map(restaurantOrderCardMarkup).join('')}
@@ -3249,7 +3273,7 @@ function ordersCalendar(key, countsByDate){
   </div>
   <div class="cal-hint">Tap any date to see that day's orders</div>`;
 }
-function ordersDayBrowser(orders, key, cardFn){
+function ordersDayBrowser(orders, key, cardFn, summaryFn){
   const today = todayIST();
   const card = cardFn || orderCardMarkup;
   const dayOf = o => o.createdDate || today;
@@ -3270,6 +3294,7 @@ function ordersDayBrowser(orders, key, cardFn){
     ${ordersCalendar(key, counts)}
     ${pickedDay ? `
       <div class="section-title">${pickedDay===today?'Today':formatDisplayDate(pickedDay)} · ${picked.length} order${picked.length===1?'':'s'}</div>
+      ${(picked.length && summaryFn) ? summaryFn(picked) : ''}
       ${picked.map(card).join('') || `<div class="empty" style="padding:26px 20px;"><div class="big">📭</div>No orders on this date.</div>`}` : ''}`;
   }
   const todays = orders.filter(o=> dayOf(o)===today);
@@ -3282,13 +3307,33 @@ function ordersDayBrowser(orders, key, cardFn){
     ? `<div class="empty" style="padding:26px 20px;"><div class="big">📦</div>No orders today yet.</div>`
     : todays.map(card).join('')}`;
 }
+/* Per-day tallies shown above a picked date's orders, since the dashboards themselves only
+   ever count today. */
+function dayTotalMarkup(left, right){
+  return `<div class="day-total"><div>${left}</div><div class="mono">${right}</div></div>`;
+}
+function riderEarnings(orders, pct){
+  return orders.reduce((s,o)=>s+Math.round(o.total*pct/100),0);
+}
+function riderDayTotal(dayOrders, pct){
+  const done = dayOrders.filter(o=>o.status==='Delivered');
+  return dayTotalMarkup(`${done.length} delivered`, `You earned ${fmt(riderEarnings(done, pct))}`);
+}
+function shopDayTotal(dayOrders){
+  const done = dayOrders.filter(o=>o.status==='Delivered');
+  return dayTotalMarkup(`${done.length} delivered`, `${fmt(done.reduce((s,o)=>s+o.total,0))} earned`);
+}
+function adminDayTotal(dayOrders){
+  const done = dayOrders.filter(o=>o.status==='Delivered');
+  return dayTotalMarkup(`${done.length} of ${dayOrders.length} delivered`, `${fmt(done.reduce((s,o)=>s+o.total,0))} collected`);
+}
 function adminOrders(){
   if(DB.orders.length===0) return `<div class="empty"><div class="big">📦</div>No orders placed yet.</div>`;
   return `
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
     <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmClearAllOrders()">Clear all orders</button>
   </div>
-  ` + ordersDayBrowser(DB.orders, 'admin');
+  ` + ordersDayBrowser(DB.orders, 'admin', orderCardMarkup, adminDayTotal);
 }
 
 /* ============ SHARED CHROME ============ */
