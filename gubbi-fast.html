@@ -284,10 +284,10 @@
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
   .cal-dow{text-align:center;font-size:9px;font-weight:700;color:var(--muted);font-family:'IBM Plex Mono',monospace;padding:2px 0 4px;}
   .cal-day{position:relative;height:36px;display:flex;align-items:center;justify-content:center;
-    border-radius:9px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;background:var(--paper);color:var(--muted);}
-  .cal-day.blank{background:transparent;}
-  .cal-day.has{background:#FDF1DC;color:var(--marigold-dark);font-weight:700;cursor:pointer;}
-  .cal-day.has:active{transform:scale(0.94);}
+    border-radius:9px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;background:var(--paper);color:var(--muted);cursor:pointer;}
+  .cal-day:active{transform:scale(0.94);}
+  .cal-day.blank{background:transparent;cursor:default;}
+  .cal-day.has{background:#FDF1DC;color:var(--marigold-dark);font-weight:700;}
   .cal-day.today{box-shadow:inset 0 0 0 2px var(--marigold);}
   .cal-day.selected{background:var(--charcoal);color:var(--marigold);font-weight:700;}
   .cal-count{position:absolute;top:-4px;right:-3px;background:var(--chili);color:#fff;font-size:8.5px;font-weight:700;
@@ -3220,7 +3220,7 @@ function ordersCalendar(key, countsByDate){
     const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const n = countsByDate[iso] || 0;
     const cls = ['cal-day', n?'has':'', iso===today?'today':'', st.day===iso?'selected':''].filter(Boolean).join(' ');
-    cells.push(`<div class="${cls}" ${n?`onclick="calSelectDay('${key}','${iso}')"`:''}>${d}${n?`<span class="cal-count">${n}</span>`:''}</div>`);
+    cells.push(`<div class="${cls}" onclick="calSelectDay('${key}','${iso}')">${d}${n?`<span class="cal-count">${n}</span>`:''}</div>`);
   }
   return `
   <div class="cal">
@@ -3234,7 +3234,7 @@ function ordersCalendar(key, countsByDate){
       ${cells.join('')}
     </div>
   </div>
-  <div class="cal-hint">Tap a highlighted date to see that day's orders</div>`;
+  <div class="cal-hint">Tap any date to see that day's orders</div>`;
 }
 function ordersDayBrowser(orders, key, cardFn){
   const today = todayIST();
