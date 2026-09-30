@@ -301,6 +301,18 @@
   .day-total{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--paper);
     border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;font-weight:700;}
   .day-total .mono{font-family:'IBM Plex Mono',monospace;color:var(--marigold-dark);}
+  .icon-btn{flex:0 0 auto;padding:7px 11px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);
+    font-size:15px;line-height:1;cursor:pointer;}
+  .icon-btn:active{transform:scale(0.93);}
+  .icon-btn.danger{background:#FCE9E3;border-color:#EEBCB0;}
+  .confirm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FCE9E3;border:1.5px solid #EEBCB0;
+    border-radius:12px;padding:10px 12px;margin:6px 0 12px;}
+  .confirm-msg{flex:1;min-width:140px;font-size:12.5px;color:var(--chili);}
+  .confirm-yes,.confirm-no{flex:0 0 auto;padding:7px 15px;border-radius:9px;font-size:12px;font-weight:700;
+    cursor:pointer;border:1.5px solid transparent;font-family:'IBM Plex Sans',sans-serif;}
+  .confirm-yes{background:var(--chili);color:#fff;}
+  .confirm-no{background:#fff;color:var(--ink);border-color:var(--line);}
+  .confirm-yes:active,.confirm-no:active{transform:scale(0.95);}
   .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
   .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
   .list-row .li{flex:1;}
@@ -1168,10 +1180,6 @@ async function rejectPayment(orderId){
   render();
 }
 
-function confirmClearAllOrders(){
-  if(!confirm(`Delete all ${DB.orders.length} order(s) and their notifications? This can't be undone.`)) return;
-  clearAllOrders();
-}
 async function clearAllOrders(){
   try{
     const {ok, data} = await apiCall('/api/admin/clear-orders', jsonPost({}, authHeaders()));
@@ -1281,10 +1289,33 @@ async function updateRestaurant(id, fields){
   showToast('Restaurant updated.');
   render();
 }
-function confirmDeleteRestaurant(id){
-  const r = restaurantById(id);
-  if(!r || !confirm(`Delete "${r.name}" and its whole menu? This can't be undone.`)) return;
-  deleteRestaurant(id);
+/* In-app yes/no confirmation shown inline under the row being deleted, instead of a browser
+   confirm() dialog — only one can be pending at a time. */
+function askDelete(kind, id, extra){
+  S._confirmDelete = {kind, id, extra};
+  render();
+}
+function cancelDelete(){ S._confirmDelete = null; render(); }
+function isDeleting(kind, id){
+  const c = S._confirmDelete;
+  return !!c && c.kind===kind && c.id===id;
+}
+function runDelete(){
+  const c = S._confirmDelete;
+  if(!c) return;
+  S._confirmDelete = null;
+  if(c.kind==='restaurant') deleteRestaurant(c.id);
+  else if(c.kind==='menu') deleteMenuItem(c.extra, c.id);
+  else if(c.kind==='rider') deleteRider(c.id);
+  else if(c.kind==='offer') deleteOffer(c.id);
+  else if(c.kind==='orders') clearAllOrders();
+}
+function deleteConfirmRow(message){
+  return `<div class="confirm-row">
+    <div class="confirm-msg">${message}</div>
+    <button class="confirm-no" onclick="event.stopPropagation(); cancelDelete()">No</button>
+    <button class="confirm-yes" onclick="event.stopPropagation(); runDelete()">Yes, remove</button>
+  </div>`;
 }
 async function deleteRestaurant(id){
   try{
@@ -1333,10 +1364,6 @@ async function updateMenuItem(restId, itemId, fields){
   saveCatalog();
   showToast('Menu item updated.');
   render();
-}
-function confirmDeleteMenuItem(restId, itemId){
-  if(!confirm('Remove this item from the menu?')) return;
-  deleteMenuItem(restId, itemId);
 }
 async function deleteMenuItem(restId, itemId){
   try{
@@ -1387,11 +1414,6 @@ async function updateRider(id, fields){
   showToast('Rider updated.');
   render();
 }
-function confirmDeleteRider(id){
-  const r = riderById(id);
-  if(!r || !confirm(`Remove rider "${r.name}"?`)) return;
-  deleteRider(id);
-}
 async function deleteRider(id){
   try{
     const {ok, data} = await apiCall(`/api/catalog/riders/${id}`, {method:'DELETE', headers:authHeaders()});
@@ -1435,10 +1457,6 @@ async function updateOffer(id, fields){
   saveCatalog();
   showToast('Offer updated.');
   render();
-}
-function confirmDeleteOffer(id){
-  if(!confirm('Remove this offer?')) return;
-  deleteOffer(id);
 }
 async function deleteOffer(offerId){
   try{
@@ -2683,6 +2701,7 @@ function setAdminTab(t){
   S._showAddRestaurant = false; S._editRestaurantFor = null; S._adminMenuFor = null;
   S._showAddRider = false; S._editRiderFor = null;
   S._showAddOffer = false; S._editOfferFor = null;
+  S._confirmDelete = null;
   resetOrderHistoryView();
   render();
 }
@@ -2864,9 +2883,10 @@ function adminRestaurants(){
         ${restaurantImgTag(r, "swatch").replace('class="swatch"', 'class="swatch" style="object-fit:cover;"')}
         <div class="li"><strong>${r.name}</strong><span>${(DB.menu[r.id]||[]).length} menu items · ${r.area} · tap to manage menu</span></div>
       </div>
-      <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="event.stopPropagation(); openEditRestaurant('${r.id}')">✏️</button>
-      <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="event.stopPropagation(); confirmDeleteRestaurant('${r.id}')">Remove</button>
+      <button class="icon-btn" onclick="event.stopPropagation(); openEditRestaurant('${r.id}')" aria-label="Edit restaurant">✏️</button>
+      <button class="icon-btn danger" onclick="event.stopPropagation(); askDelete('restaurant','${r.id}')" aria-label="Remove restaurant">🗑️</button>
     </div>
+    ${isDeleting('restaurant', r.id)?deleteConfirmRow(`Remove <strong>${r.name}</strong> and its whole menu? This can't be undone.`):''}
     ${S._editRestaurantFor===r.id?editRestaurantForm(r):''}`).join('')}
   ${S._adminMenuFor?adminMenuEditor(S._adminMenuFor):''}
   `}
@@ -2940,9 +2960,10 @@ function adminMenuEditor(restId){
       <div class="list-row">
         ${itemImgTag(it, "swatch").replace('class="swatch"', 'class="swatch" style="object-fit:cover;"')}
         <div class="li"><strong>${it.name}</strong><span>${it.veg?'Veg':'Non-veg'} · ${fmt(it.price)}</span></div>
-        <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditMenuItem('${it.id}')">✏️</button>
-        <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteMenuItem('${restId}','${it.id}')">Remove</button>
+        <button class="icon-btn" onclick="openEditMenuItem('${it.id}')" aria-label="Edit item">✏️</button>
+        <button class="icon-btn danger" onclick="askDelete('menu','${it.id}','${restId}')" aria-label="Remove item">🗑️</button>
       </div>
+      ${isDeleting('menu', it.id)?deleteConfirmRow(`Remove <strong>${it.name}</strong> from the menu?`):''}
       ${S._editMenuItemFor===it.id?editMenuItemForm(restId,it):''}`).join('') || '<div class="meta" style="color:var(--muted);font-size:12px;">No items yet.</div>'}
     <div style="margin-top:14px;">
       <div class="field"><label>Item name</label><input id="newMName" placeholder="e.g. Set Dosa"></div>
@@ -3046,9 +3067,10 @@ function adminRiders(){
       <div class="list-row" style="border-bottom:none;padding-bottom:0;">
         <div class="swatch" style="background:#E6EEFB;">🛵</div>
         <div class="li"><strong>${r.name}</strong><span>${active} active · ${delivered} delivered</span></div>
-        <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditRider('${r.id}')">✏️</button>
-        <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteRider('${r.id}')">Remove</button>
+        <button class="icon-btn" onclick="openEditRider('${r.id}')" aria-label="Edit rider">✏️</button>
+        <button class="icon-btn danger" onclick="askDelete('rider','${r.id}')" aria-label="Remove rider">🗑️</button>
       </div>
+      ${isDeleting('rider', r.id)?deleteConfirmRow(`Remove rider <strong>${r.name}</strong>?`):''}
       ${S._editRiderFor===r.id?editRiderForm(r):''}
     </div>`;
   }).join('')}
@@ -3125,9 +3147,10 @@ function adminOffers(){
     return `<div class="list-row">
       <div class="swatch" style="background:${o.bg};display:flex;align-items:center;justify-content:center;font-size:16px;">${o.emoji}</div>
       <div class="li"><strong>${o.title}</strong><span>${o.sub} ${rest?`· links to ${rest.name}`:'· no restaurant linked'}</span></div>
-      <button class="upload-btn" style="flex:0 0 auto;padding:8px 10px;" onclick="openEditOffer('${o.id}')">✏️</button>
-      <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmDeleteOffer('${o.id}')">Remove</button>
+      <button class="icon-btn" onclick="openEditOffer('${o.id}')" aria-label="Edit offer">✏️</button>
+      <button class="icon-btn danger" onclick="askDelete('offer','${o.id}')" aria-label="Remove offer">🗑️</button>
     </div>
+    ${isDeleting('offer', o.id)?deleteConfirmRow(`Remove the offer <strong>${o.title}</strong>?`):''}
     ${S._editOfferFor===o.id?editOfferForm(o,restOptions):''}`;
   }).join('')}
   `}
@@ -3331,8 +3354,9 @@ function adminOrders(){
   if(DB.orders.length===0) return `<div class="empty"><div class="big">📦</div>No orders placed yet.</div>`;
   return `
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-    <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="confirmClearAllOrders()">Clear all orders</button>
+    <button class="upload-btn" style="flex:0 0 auto;padding:8px 12px;color:var(--chili);border-color:var(--chili);" onclick="askDelete('orders','all')">🗑️ Clear all orders</button>
   </div>
+  ${isDeleting('orders','all')?deleteConfirmRow(`Delete all ${DB.orders.length} order(s) and their notifications? This can't be undone.`):''}
   ` + ordersDayBrowser(DB.orders, 'admin', orderCardMarkup, adminDayTotal);
 }
 
