@@ -293,6 +293,11 @@
   .cal-count{position:absolute;top:-4px;right:-3px;background:var(--chili);color:#fff;font-size:8.5px;font-weight:700;
     min-width:14px;height:14px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
   .cal-hint{font-size:11px;color:var(--muted);text-align:center;margin:8px 0 2px;font-family:'IBM Plex Mono',monospace;}
+  .browser-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:22px 0 10px;}
+  .browser-head .section-title{margin:0;}
+  .hist-btn{flex:0 0 auto;padding:8px 13px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);
+    color:var(--ink);font-size:11.5px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap;}
+  .hist-btn:active{transform:scale(0.96);}
   .list-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);}
   .list-row .swatch{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
   .list-row .li{flex:1;}
@@ -3192,7 +3197,7 @@ function orderCardMarkup(o){
 const DOW_LABELS = ['S','M','T','W','T','F','S'];
 function calState(key){
   S._cal = S._cal || {};
-  if(!S._cal[key]) S._cal[key] = {month: todayIST().slice(0,7), day: null};
+  if(!S._cal[key]) S._cal[key] = {month: todayIST().slice(0,7), day: null, open: false};
   return S._cal[key];
 }
 function calShiftMonth(key, delta){
@@ -3207,6 +3212,14 @@ function calSelectDay(key, iso){
   const st = calState(key);
   st.day = (st.day===iso) ? null : iso;
   render();
+}
+function toggleOrderHistory(key){
+  const st = calState(key);
+  st.open = !st.open;
+  st.day = null;
+  st.month = todayIST().slice(0,7);
+  render();
+  window.scrollTo(0,0);
 }
 function ordersCalendar(key, countsByDate){
   const st = calState(key);
@@ -3243,20 +3256,31 @@ function ordersDayBrowser(orders, key, cardFn){
   const counts = {};
   orders.forEach(o=>{ const d = dayOf(o); counts[d] = (counts[d]||0) + 1; });
   const st = calState(key);
+  // History replaces today's list rather than sitting under it, so the calendar is always one
+  // tap away no matter how many orders today has.
+  if(st.open){
+    // Only list a picked day while its own month is the one on screen.
+    const pickedDay = (st.day && st.day.slice(0,7)===st.month) ? st.day : null;
+    const picked = pickedDay ? orders.filter(o=> dayOf(o)===pickedDay) : [];
+    return `
+    <div class="browser-head">
+      <div class="section-title">Order history</div>
+      <button class="hist-btn" onclick="toggleOrderHistory('${key}')">← Today</button>
+    </div>
+    ${ordersCalendar(key, counts)}
+    ${pickedDay ? `
+      <div class="section-title">${pickedDay===today?'Today':formatDisplayDate(pickedDay)} · ${picked.length} order${picked.length===1?'':'s'}</div>
+      ${picked.map(card).join('') || `<div class="empty" style="padding:26px 20px;"><div class="big">📭</div>No orders on this date.</div>`}` : ''}`;
+  }
   const todays = orders.filter(o=> dayOf(o)===today);
-  // Only list a picked day while its own month is the one on screen.
-  const pickedDay = (st.day && st.day.slice(0,7)===st.month) ? st.day : null;
-  const picked = pickedDay ? orders.filter(o=> dayOf(o)===pickedDay) : [];
   return `
-  <div class="section-title">Today · ${todays.length} order${todays.length===1?'':'s'}</div>
+  <div class="browser-head">
+    <div class="section-title">Today · ${todays.length} order${todays.length===1?'':'s'}</div>
+    <button class="hist-btn" onclick="toggleOrderHistory('${key}')">📅 Order history</button>
+  </div>
   ${todays.length===0
     ? `<div class="empty" style="padding:26px 20px;"><div class="big">📦</div>No orders today yet.</div>`
-    : todays.map(card).join('')}
-  <div class="section-title">Order history</div>
-  ${ordersCalendar(key, counts)}
-  ${pickedDay ? `
-    <div class="section-title">${pickedDay===today?'Today':formatDisplayDate(pickedDay)} · ${picked.length} order${picked.length===1?'':'s'}</div>
-    ${picked.map(card).join('') || `<div class="empty" style="padding:26px 20px;"><div class="big">📭</div>No orders on this date.</div>`}` : ''}`;
+    : todays.map(card).join('')}`;
 }
 function adminOrders(){
   if(DB.orders.length===0) return `<div class="empty"><div class="big">📦</div>No orders placed yet.</div>`;
