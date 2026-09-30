@@ -274,9 +274,6 @@
   .stat-clickable:active{transform:scale(0.97);}
   .stat .n{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px;}
   .stat .l{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
-  .stat.selected{background:var(--charcoal);}
-  .stat.selected .n{color:var(--marigold);}
-  .stat.selected .l{color:var(--marigold);}
   /* order-history calendar */
   .cal{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin-bottom:6px;}
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -2279,9 +2276,9 @@ function screenRiderDashboard(){
   ${topbarLogged()}
   <div class="content">
     <div class="stat-grid">
-      <div class="stat stat-clickable ${tab==='orders'?'selected':''}" onclick="setRiderTab('orders')"><div class="n">${mine.length}</div><div class="l">Active</div></div>
-      <div class="stat stat-clickable ${tab==='history'?'selected':''}" onclick="setRiderTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
-      <div class="stat stat-clickable ${tab==='earnings'?'selected':''}" onclick="setRiderTab('earnings')"><div class="n">${fmt(totalEarnings)}</div><div class="l">Earnings</div></div>
+      <div class="stat stat-clickable" onclick="setRiderTab('orders')"><div class="n">${mine.length}</div><div class="l">Active</div></div>
+      <div class="stat stat-clickable" onclick="setRiderTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+      <div class="stat stat-clickable" onclick="setRiderTab('earnings')"><div class="n">${fmt(totalEarnings)}</div><div class="l">Earnings</div></div>
     </div>
     <div class="tab-row">
       <div class="tab ${tab==='orders'?'active':''}" onclick="setRiderTab('orders')">Orders</div>
@@ -2519,9 +2516,9 @@ function screenRestaurantDashboard(){
         <div class="meta" style="font-size:12px;color:var(--muted);">${shop.cuisine} · ${shop.area}</div></div>
     </div>
     <div class="stat-grid">
-      <div class="stat stat-clickable ${tab==='orders'?'selected':''}" onclick="setRestaurantTab('orders')"><div class="n">${live.length}</div><div class="l">Live</div></div>
-      <div class="stat stat-clickable ${tab==='history'?'selected':''}" onclick="setRestaurantTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
-      <div class="stat stat-clickable ${tab==='earnings'?'selected':''}" onclick="setRestaurantTab('earnings')"><div class="n">${fmt(earned)}</div><div class="l">Earnings</div></div>
+      <div class="stat stat-clickable" onclick="setRestaurantTab('orders')"><div class="n">${live.length}</div><div class="l">Live</div></div>
+      <div class="stat stat-clickable" onclick="setRestaurantTab('history')"><div class="n">${delivered.length}</div><div class="l">Delivered</div></div>
+      <div class="stat stat-clickable" onclick="setRestaurantTab('earnings')"><div class="n">${fmt(earned)}</div><div class="l">Earnings</div></div>
     </div>
     <div class="tab-row">
       <div class="tab ${tab==='orders'?'active':''}" onclick="setRestaurantTab('orders')">Orders</div>
@@ -2558,7 +2555,6 @@ function screenRestaurantDashboard(){
     <div class="section-title">Orders to prepare</div>
     ${live.length===0?`<div class="empty"><div class="big">✅</div>Nothing pending right now.</div>`:live.map(restaurantOrderCardMarkup).join('')}
     `}
-    <button class="btn btn-ghost" style="margin-top:20px;" onclick="logout()">🚪 Logout</button>
   </div>`;
 }
 function restaurantOrderCardMarkup(o){
