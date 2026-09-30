@@ -797,7 +797,38 @@ function renderToastOnly(){
   if(el) el.remove();
 }
 
-function go(screen){ S.screen = screen; S.notifOpen = false; resetOrderHistoryView(); render(); window.scrollTo(0,0); }
+function go(screen){
+  if(S.screen !== screen){
+    S._navStack = S._navStack || [];
+    S._navStack.push(S.screen);
+    // One history entry per screen, so the phone's back button walks back through the app
+    // instead of leaving the site on the very first press.
+    try{ history.pushState({gf:S._navStack.length}, ''); }catch(e){}
+  }
+  showScreen(screen);
+}
+function showScreen(screen){
+  S.screen = screen;
+  S.notifOpen = false;
+  S._confirmDelete = null;
+  resetOrderHistoryView();
+  render();
+  window.scrollTo(0,0);
+}
+window.addEventListener('popstate', ()=>{
+  if(S.notifOpen){ // back closes the notification panel first
+    S.notifOpen = false;
+    try{ history.pushState({gf:(S._navStack||[]).length}, ''); }catch(e){}
+    render();
+    return;
+  }
+  const stack = S._navStack || [];
+  if(stack.length){
+    showScreen(stack.pop());
+    return;
+  }
+  // Already on the first screen of this visit — let the browser leave, as it normally would.
+});
 /* Order-history calendars always open fresh on the current month with no date picked, instead
    of resurfacing whatever day was tapped the last time this screen/tab was open. */
 function resetOrderHistoryView(){ S._cal = {}; }
@@ -3509,6 +3540,8 @@ document.addEventListener('click', function(e){
 
 async function init(){
   restoreSession(); // keeps a logged-in customer/rider/admin logged in across page refreshes
+  S._navStack = [];
+  try{ history.replaceState({gf:0}, ''); }catch(e){}
   render(); // show something immediately
   await loadAll(); // pull shared restaurants/orders/notifications from the backend
   render();
