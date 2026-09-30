@@ -2857,7 +2857,7 @@ function adminRestaurants(){
       <button class="btn btn-ghost" onclick="toggleAddRestaurant()">Cancel</button>
     </div>
   </div>`:`
-  <div class="section-title">All restaurants</div>
+  <div class="section-title">All restaurants — tap ✏️ to edit details or reset the login password</div>
   ${DB.restaurants.map(r=>`
     <div class="list-row">
       <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="openAdminMenu('${r.id}')">
